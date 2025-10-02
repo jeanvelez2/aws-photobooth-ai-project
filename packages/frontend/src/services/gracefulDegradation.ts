@@ -220,10 +220,30 @@ export class GracefulDegradationService {
 
       // Queue for later processing
       queueForLater: async (request: any) => {
-        const queue = JSON.parse(localStorage.getItem('processing_queue') || '[]');
-        queue.push({ ...request, timestamp: Date.now() });
-        localStorage.setItem('processing_queue', JSON.stringify(queue));
-        return { queued: true, position: queue.length };
+        try {
+          const queue = JSON.parse(localStorage.getItem('processing_queue') || '[]');
+          
+          // Limit queue size to prevent storage overflow
+          const MAX_QUEUE_SIZE = 10;
+          if (queue.length >= MAX_QUEUE_SIZE) {
+            queue.shift(); // Remove oldest item
+          }
+          
+          // Store minimal data to save space
+          const minimalRequest = {
+            photoId: request.photoId,
+            themeId: request.themeId,
+            timestamp: Date.now()
+          };
+          
+          queue.push(minimalRequest);
+          localStorage.setItem('processing_queue', JSON.stringify(queue));
+          return { queued: true, position: queue.length };
+        } catch (error) {
+          // If localStorage is full, clear queue and try again
+          localStorage.removeItem('processing_queue');
+          return { queued: false, error: 'Storage quota exceeded' };
+        }
       },
     };
   }
@@ -273,16 +293,27 @@ export class GracefulDegradationService {
     return {
       // Local storage for small images
       localStorage: async (imageData: Blob) => {
-        if (imageData.size > 1024 * 1024) { // 1MB limit
+        if (imageData.size > 512 * 1024) { // 512KB limit
           throw new Error('Image too large for local storage');
         }
         
         const reader = new FileReader();
+        const reader = new FileReader();
         return new Promise((resolve, reject) => {
           reader.onload = () => {
-            const id = `local_${Date.now()}`;
-            localStorage.setItem(`image_${id}`, reader.result as string);
-            resolve({ id, url: reader.result });
+            try {
+              const id = `local_${Date.now()}`;
+              localStorage.setItem(`image_${id}`, reader.result as string);
+              resolve({ id, url: reader.result });
+            } catch (error) {
+              // Clear old images if storage is full
+              const keys = Object.keys(localStorage);
+              const imageKeys = keys.filter(key => key.startsWith('image_') || key.startsWith('processed_'));
+              imageKeys.sort().slice(0, Math.floor(imageKeys.length / 2)).forEach(key => {
+                localStorage.removeItem(key);
+              });
+              reject(new Error('Storage quota exceeded'));
+            }
           };
           reader.onerror = reject;
           reader.readAsDataURL(imageData);
@@ -411,6 +442,19 @@ export class GracefulDegradationService {
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.status}`);
     }
+  }
+
+  /**
+   * Clear old images from localStorage
+   */
+  private clearOldImages(): void {
+    const keys = Object.keys(localStorage);
+    const imageKeys = keys.filter(key => key.startsWith('image_') || key.startsWith('processed_'));
+    
+    // Sort by timestamp and remove oldest
+    imageKeys.sort().slice(0, Math.floor(imageKeys.length / 2)).forEach(key => {
+      localStorage.removeItem(key);
+    });
   }
 
   /**

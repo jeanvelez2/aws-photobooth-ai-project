@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct API Test</title>
+</head>
+<body>
+    <h1>Direct API Test</h1>
+    <button onclick="testAPI()">Test API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                // Test health endpoint
+                const healthResponse = await fetch('https://d1sb1uvkfiy4hq.cloudfront.net/api/health', {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                results.innerHTML += `<p>Health: ${healthResponse.status} ${healthResponse.statusText}</p>`;
+                
+                if (healthResponse.ok) {
+                    const healthData = await healthResponse.json();
+                    results.innerHTML += `<pre>${JSON.stringify(healthData, null, 2)}</pre>`;
+                }
+                
+                // Test process endpoint
+                const processResponse = await fetch('https://d1sb1uvkfiy4hq.cloudfront.net/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        photoId: 'test',
+                        themeId: 'barbarian',
+                        originalImageUrl: 'test'
+                    }),
+                    mode: 'cors'
+                });
+                
+                results.innerHTML += `<p>Process: ${processResponse.status} ${processResponse.statusText}</p>`;
+                
+            } catch (error) {
+                results.innerHTML += `<p>Error: ${error.message}</p>`;
+                console.error('API Test Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

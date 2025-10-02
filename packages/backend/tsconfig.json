@@ -8,6 +8,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "noEmit": false,
+    "composite": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],

@@ -7,10 +7,11 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
+    "noEmit": false,
+    "composite": true,
+    "emitDeclarationOnly": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
