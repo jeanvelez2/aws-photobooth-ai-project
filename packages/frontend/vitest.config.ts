@@ -16,11 +16,33 @@ export default defineConfig({
         singleFork: true,
       },
     },
-    // Mock browser APIs that cause issues
+    // Enhanced environment options for jsdom
+    environmentOptions: {
+      jsdom: {
+        resources: 'usable',
+        runScripts: 'dangerously',
+        pretendToBeVisual: true,
+        url: 'http://localhost:3000',
+      },
+    },
+    // Optimize module resolution for problematic dependencies
     server: {
       deps: {
-        inline: ['webidl-conversions', 'whatwg-url'],
-        external: ['webidl-conversions', 'whatwg-url'],
+        // Inline problematic ESM modules to avoid resolution issues
+        inline: [
+          'webidl-conversions',
+          'whatwg-url',
+          '@testing-library/jest-dom',
+          '@testing-library/react',
+          '@testing-library/user-event'
+        ],
+        // External modules that should not be bundled
+        external: [
+          'react',
+          'react-dom',
+          'vitest',
+          'jsdom'
+        ],
       },
     },
     // Exclude problematic dependencies
@@ -42,9 +64,13 @@ export default defineConfig({
   // Resolve issues with ESM modules
   resolve: {
     conditions: ['development', 'browser'],
+    alias: {
+      '@photobooth/shared': new URL('../shared/src/index.ts', import.meta.url).pathname,
+    },
   },
   define: {
     // Define globals that might be missing
     global: 'globalThis',
+    'process.env.NODE_ENV': '"test"',
   },
 })

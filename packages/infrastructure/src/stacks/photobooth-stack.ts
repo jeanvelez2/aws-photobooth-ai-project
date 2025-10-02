@@ -552,7 +552,7 @@ export class PhotoboothStack extends cdk.Stack {
       defaultTtl: cdk.Duration.hours(24),
       maxTtl: cdk.Duration.days(7),
       minTtl: cdk.Duration.seconds(0),
-      headerBehavior: cloudfront.CacheHeaderBehavior.allowList('Accept', 'Accept-Encoding'),
+      headerBehavior: cloudfront.CacheHeaderBehavior.none(),
       queryStringBehavior: cloudfront.CacheQueryStringBehavior.allowList('v', 'format'),
       cookieBehavior: cloudfront.CacheCookieBehavior.none(),
       enableAcceptEncodingGzip: true,
@@ -568,8 +568,7 @@ export class PhotoboothStack extends cdk.Stack {
       headerBehavior: cloudfront.CacheHeaderBehavior.allowList(
         'Authorization',
         'Content-Type',
-        'Accept',
-        'Accept-Encoding'
+        'Accept'
       ),
       queryStringBehavior: cloudfront.CacheQueryStringBehavior.all(),
       cookieBehavior: cloudfront.CacheCookieBehavior.none(),
