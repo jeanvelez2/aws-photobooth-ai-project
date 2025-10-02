@@ -54,14 +54,8 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
     return next();
   }
 
-  // Allow HTTP for API endpoints from ELB and CloudFront
-  if (req.path.startsWith('/api/') && (
-    req.get('User-Agent')?.includes('ELB-HealthChecker') ||
-    req.get('User-Agent')?.includes('Amazon CloudFront') ||
-    req.get('X-Forwarded-Proto') === 'https' ||
-    req.headers['cloudfront-viewer-country'] || // CloudFront header
-    req.headers['x-forwarded-proto'] === 'https' // CloudFront sets this
-  )) {
+  // Always allow all API endpoints - CloudFront handles HTTPS termination
+  if (req.path.startsWith('/api/')) {
     return next();
   }
 
