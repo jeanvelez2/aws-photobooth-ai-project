@@ -305,13 +305,28 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        sleep 30
+        CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
         
+        echo "Waiting for ECS service to be ready..."
+        sleep 60
+        
+        echo "Attempting theme seeding via ALB..."
         curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
           --max-time 30 \
           --retry 3 \
-          --retry-delay 10 || echo "Theme seeding failed, will retry later"
+          --retry-delay 10 || echo "ALB theme seeding failed"
+        
+        echo "Attempting theme seeding via CloudFront..."
+        curl -X POST "https://$CLOUDFRONT_URL/api/themes/seed" \
+          -H "Content-Type: application/json" \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 10 || echo "CloudFront theme seeding failed"
     
     - name: Run post-deployment validation
       run: |
@@ -322,6 +337,25 @@ jobs:
           --region ${{ env.AWS_REGION }})
         
         CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Testing health endpoint via ALB..."
+        curl -f "$ALB_URL/api/health" || echo "ALB health check failed"
+        
+        echo "Testing themes endpoint via ALB..."
+        curl -f "$ALB_URL/api/themes" || echo "ALB themes endpoint failed"
+        
+        echo "Testing health endpoint via CloudFront..."
+        curl -f "https://$CLOUDFRONT_URL/api/health" || echo "CloudFront health check failed"
+        
+        echo "Testing themes endpoint via CloudFront..."
+        curl -f "https://$CLOUDFRONT_URL/api/themes" || echo "CloudFront themes endpoint failed"
+        
+        echo "Deployment completed successfully!"
+        echo "Application URL: https://$CLOUDFRONT_URL"  CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
           --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
           --output text \
