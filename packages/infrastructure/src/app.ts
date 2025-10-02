@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { PhotoboothStack } from './stacks/photobooth-stack';
 import { MonitoringStack } from './stacks/monitoring-stack';
 import { CicdStack } from './stacks/cicd-stack';
+import { EcrStack } from './stacks/ecr-stack';
 import { getEnvironmentConfig } from './config/environments';
 
 // Declare process for Node.js environment
@@ -20,6 +21,19 @@ const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: environmentConfig.region,
 };
+
+// Create ECR repositories first
+const ecrStack = new EcrStack(app, `EcrStack-${environmentName}`, {
+  env,
+  environmentConfig,
+  description: `AI Photobooth ECR repositories - ${environmentName}`,
+  tags: {
+    Project: 'AI-Photobooth',
+    Environment: environmentName,
+    ManagedBy: 'CDK',
+    Component: 'ECR',
+  },
+});
 
 // Create the main photobooth stack
 const photoboothStack = new PhotoboothStack(app, `PhotoboothStack-${environmentName}`, {

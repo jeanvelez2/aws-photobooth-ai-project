@@ -354,7 +354,11 @@ global.File = class MockFile {
     public name: string,
     public options: FilePropertyBag = {}
   ) {
-    this.size = bits.reduce((acc, bit) => acc + (typeof bit === 'string' ? bit.length : bit.size || 0), 0)
+    this.size = bits.reduce((acc, bit) => {
+      if (typeof bit === 'string') return acc + bit.length
+      if (bit instanceof ArrayBuffer) return acc + bit.byteLength
+      return acc + ((bit as any).size || 0)
+    }, 0)
     this.type = options.type || ''
     this.lastModified = options.lastModified || Date.now()
   }
@@ -380,10 +384,10 @@ global.File = class MockFile {
   }
 } as any
 
-global.FileReader = class MockFileReader extends EventTarget {
+class MockFileReader extends EventTarget implements FileReader {
   result: string | ArrayBuffer | null = null
   error: DOMException | null = null
-  readyState: number = 0
+  readyState: 0 | 1 | 2 = 0
   
   onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
   onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
@@ -397,9 +401,7 @@ global.FileReader = class MockFileReader extends EventTarget {
     setTimeout(() => {
       this.result = ''
       this.readyState = 2
-      if (this.onload) {
-        this.onload({} as ProgressEvent<FileReader>)
-      }
+      this.onload?.call(this as any, {} as ProgressEvent<FileReader>)
     }, 0)
   }
   
@@ -408,9 +410,7 @@ global.FileReader = class MockFileReader extends EventTarget {
     setTimeout(() => {
       this.result = 'data:image/png;base64,'
       this.readyState = 2
-      if (this.onload) {
-        this.onload({} as ProgressEvent<FileReader>)
-      }
+      this.onload?.call(this as any, {} as ProgressEvent<FileReader>)
     }, 0)
   }
   
@@ -419,23 +419,34 @@ global.FileReader = class MockFileReader extends EventTarget {
     setTimeout(() => {
       this.result = new ArrayBuffer(0)
       this.readyState = 2
-      if (this.onload) {
-        this.onload({} as ProgressEvent<FileReader>)
-      }
+      this.onload?.call(this as any, {} as ProgressEvent<FileReader>)
+    }, 0)
+  }
+  
+  readAsBinaryString(file: Blob) {
+    this.readyState = 1
+    setTimeout(() => {
+      this.result = ''
+      this.readyState = 2
+      this.onload?.call(this as any, {} as ProgressEvent<FileReader>)
     }, 0)
   }
   
   abort() {
     this.readyState = 2
-    if (this.onabort) {
-      this.onabort({} as ProgressEvent<FileReader>)
-    }
+    this.onabort?.call(this as any, {} as ProgressEvent<FileReader>)
   }
   
   static readonly EMPTY = 0
   static readonly LOADING = 1
   static readonly DONE = 2
-} as any
+  
+  readonly EMPTY = 0
+  readonly LOADING = 1
+  readonly DONE = 2
+}
+
+global.FileReader = MockFileReader as any
 
 // Mock additional DOM APIs that might be missing
 if (typeof window !== 'undefined') {
@@ -616,7 +627,7 @@ if (typeof global.URLSearchParams === 'undefined') {
         // Simple parsing for test purposes
         init.split('&').forEach(pair => {
           const [key, value] = pair.split('=')
-          if (key) this.params.set(decodeURIComponent(key), decodeURIComponent(value || ''))
+          if (key) this.params.set(decodeURIComponent(String(key)), decodeURIComponent(String(value || '')))
         })
       }
     }
@@ -896,15 +907,15 @@ vi.mock('whatwg-url', () => {
         this.parseString(init)
       } else if (init instanceof URLSearchParams || init instanceof MockURLSearchParams) {
         init.forEach((value, key) => {
-          this.append(key, value)
+          this.append(String(key), String(value))
         })
       } else if (Array.isArray(init)) {
         init.forEach(([key, value]) => {
-          this.append(key, value)
+          this.append(String(key), String(value))
         })
       } else if (init && typeof init === 'object') {
         Object.entries(init).forEach(([key, value]) => {
-          this.append(key, value)
+          this.append(String(key), String(value))
         })
       }
     }
@@ -916,7 +927,7 @@ vi.mock('whatwg-url', () => {
       str.split('&').forEach(pair => {
         if (pair) {
           const [key, value = ''] = pair.split('=')
-          this.append(decodeURIComponent(key), decodeURIComponent(value))
+          this.append(decodeURIComponent(String(key)), decodeURIComponent(String(value)))
         }
       })
     }
@@ -1089,7 +1100,7 @@ const shouldSuppressMessage = (message: string, patterns: RegExp[]): boolean => 
 
 // Enhanced console.error with precise filtering
 console.error = (...args: any[]) => {
-  const message = args[0]?.toString() || ''
+  const message = String(args[0] || '')
   
   // Check if this error should be suppressed
   if (shouldSuppressMessage(message, suppressedErrorPatterns)) {
@@ -1108,7 +1119,7 @@ console.error = (...args: any[]) => {
 
 // Enhanced console.warn with filtering
 console.warn = (...args: any[]) => {
-  const message = args[0]?.toString() || ''
+  const message = String(args[0] || '')
   
   // Check if this warning should be suppressed
   if (shouldSuppressMessage(message, suppressedWarnPatterns)) {
@@ -1127,20 +1138,20 @@ console.warn = (...args: any[]) => {
 
 // Provide a way to restore original console methods for debugging
 if (typeof globalThis !== 'undefined') {
-  globalThis.__restoreConsole = () => {
+  ;(globalThis as any).__restoreConsole = () => {
     console.error = originalError
     console.warn = originalWarn
   }
   
-  globalThis.__suppressConsole = () => {
+  ;(globalThis as any).__suppressConsole = () => {
     console.error = (...args: any[]) => {
-      const message = args[0]?.toString() || ''
+      const message = String(args[0] || '')
       if (!shouldSuppressMessage(message, suppressedErrorPatterns)) {
         originalError(...args)
       }
     }
     console.warn = (...args: any[]) => {
-      const message = args[0]?.toString() || ''
+      const message = String(args[0] || '')
       if (!shouldSuppressMessage(message, suppressedWarnPatterns)) {
         originalWarn(...args)
       }

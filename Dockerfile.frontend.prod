@@ -1,0 +1,22 @@
+# Production Frontend Dockerfile
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+COPY package*.json ./
+COPY packages/frontend/package*.json ./packages/frontend/
+COPY packages/shared/package*.json ./packages/shared/
+
+RUN npm ci --only=production
+
+COPY packages/frontend ./packages/frontend
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+
+RUN npm run build --workspace=shared
+RUN npm run build --workspace=frontend
+
+FROM nginx:alpine
+COPY --from=builder /app/packages/frontend/dist /usr/share/nginx/html
+COPY packages/frontend/nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

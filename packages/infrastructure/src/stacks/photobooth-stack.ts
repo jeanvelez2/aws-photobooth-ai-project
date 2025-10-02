@@ -10,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as xray from 'aws-cdk-lib/aws-xray';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config/environments';
 
@@ -26,6 +27,7 @@ export class PhotoboothStack extends cdk.Stack {
   public readonly distribution: cloudfront.Distribution;
   public readonly service: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
+
 
   private readonly environmentConfig: EnvironmentConfig;
 
@@ -113,6 +115,8 @@ export class PhotoboothStack extends cdk.Stack {
 
     return bucket;
   }
+
+
 
   private createProcessingJobsTable(): dynamodb.Table {
     const table = new dynamodb.Table(this, 'ProcessingJobsTable', {
@@ -384,9 +388,9 @@ export class PhotoboothStack extends cdk.Stack {
       },
     });
 
-    // Add container to task definition
+    // Add container to task definition - will use ECR image from separate stack
     const container = taskDefinition.addContainer('ProcessingContainer', {
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/docker/library/node:18-alpine'), // Placeholder - will be replaced with actual image
+      image: ecs.ContainerImage.fromRegistry(`${this.account}.dkr.ecr.${this.region}.amazonaws.com/ai-photobooth-backend-${this.environmentConfig.environment}:latest`),
       memoryLimitMiB: 3584,
       cpu: 1792,
       logging: ecs.LogDrivers.awsLogs({
@@ -688,6 +692,11 @@ export class PhotoboothStack extends cdk.Stack {
       description: 'DynamoDB table name for themes',
     });
 
+    new cdk.CfnOutput(this, 'LoadBalancerUrl', {
+      value: `http://${this.loadBalancer.loadBalancerDnsName}`,
+      description: 'Application Load Balancer URL',
+    });
+
     new cdk.CfnOutput(this, 'LoadBalancerDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
       description: 'Application Load Balancer DNS name',
@@ -696,6 +705,11 @@ export class PhotoboothStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CloudFrontDomainName', {
       value: this.distribution.distributionDomainName,
       description: 'CloudFront distribution domain name',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+      value: this.distribution.distributionId,
+      description: 'CloudFront distribution ID',
     });
 
     new cdk.CfnOutput(this, 'ClusterName', {
@@ -717,5 +731,7 @@ export class PhotoboothStack extends cdk.Stack {
       value: this.loadBalancer.loadBalancerArn,
       description: 'Application Load Balancer ARN',
     });
+
+
   }
 }

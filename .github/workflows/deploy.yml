@@ -8,18 +8,18 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
-  # Infrastructure Deployment
-  deploy-infrastructure:
-    name: Deploy Infrastructure
+  # Deploy ECR repositories first
+  deploy-ecr:
+    name: Deploy ECR Repositories
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
     permissions:
-      id-token: write   # Required for OIDC
-      contents: read    # Required to checkout code
+      id-token: write
+      contents: read
     
     steps:
     - name: Checkout code
@@ -36,7 +36,7 @@ jobs:
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
-        role-session-name: GitHubActions-InfrastructureDeploy
+        role-session-name: GitHubActions-ECRDeploy
     
     - name: Install dependencies
       run: |
@@ -47,10 +47,10 @@ jobs:
     - name: Install AWS CDK
       run: npm install -g aws-cdk@latest
     
-    - name: Deploy infrastructure
+    - name: Deploy ECR repositories only
       run: |
         cd packages/infrastructure
-        cdk deploy PhotoboothStack-dev --context environment=dev --require-approval never --verbose
+        cdk deploy EcrStack-dev --context environment=dev --require-approval never --no-rollback --verbose
       env:
         CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
         CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -88,11 +88,11 @@ jobs:
           packages/backend/dist/
         retention-days: 1
 
-  # Deploy Applications
-  deploy-applications:
-    name: Deploy Applications
+  # Build and push images
+  build-and-push-images:
+    name: Build and Push Images
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, build-and-test]
+    needs: [deploy-ecr, build-and-test]
     if: github.ref == 'refs/heads/main'
     
     permissions:
@@ -125,7 +125,7 @@ jobs:
         ECR_REPOSITORY: ai-photobooth-frontend-dev
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -f Dockerfile.frontend -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        docker build -f Dockerfile.frontend.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     
@@ -135,20 +135,83 @@ jobs:
         ECR_REPOSITORY: ai-photobooth-backend-dev
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -f Dockerfile.backend -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        docker build -f Dockerfile.backend.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     
-    - name: Update ECS service
-      run: |
-        # Force new deployment of ECS service to pick up new images
-        aws ecs update-service \
-          --cluster photobooth-cluster-dev \
-          --service photobooth-processing-dev \
-          --force-new-deployment \
-          --region ${{ env.AWS_REGION }}
+  # Deploy full infrastructure after images are ready
+  deploy-infrastructure:
+    name: Deploy Full Infrastructure
+    runs-on: ubuntu-latest
+    needs: [build-and-push-images]
+    if: github.ref == 'refs/heads/main'
     
-    - name: Wait for deployment to complete
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: GitHubActions-InfrastructureDeploy
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd packages/infrastructure
+        npm ci
+    
+    - name: Install AWS CDK
+      run: npm install -g aws-cdk@latest
+    
+    - name: Deploy full infrastructure
+      run: |
+        cd packages/infrastructure
+        cdk deploy PhotoboothStack-dev --context environment=dev --require-approval never --no-rollback --verbose
+      env:
+        CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+        CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+    
+    - name: Deploy frontend to S3
+      run: |
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/static/ --delete
+    
+    - name: Invalidate CloudFront
+      run: |
+        DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        aws cloudfront create-invalidation \
+          --distribution-id $DISTRIBUTION_ID \
+          --paths "/*"
+    
+    - name: Wait for ECS service to be stable
       run: |
         aws ecs wait services-stable \
           --cluster photobooth-cluster-dev \
@@ -157,17 +220,14 @@ jobs:
     
     - name: Run post-deployment validation
       run: |
-        # Wait a bit for the service to be fully ready
         sleep 30
         
-        # Get the load balancer URL from CloudFormation outputs
         ALB_URL=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
           --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerUrl`].OutputValue' \
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        # Health check
         echo "Testing health endpoint: $ALB_URL/api/health"
         curl -f "$ALB_URL/api/health" || exit 1
         
@@ -177,7 +237,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [deploy-applications]
+    needs: [deploy-infrastructure]
     if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-staging]')
     environment: staging
     
