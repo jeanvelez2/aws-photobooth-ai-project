@@ -12,7 +12,7 @@ export const mockThemes: Theme[] = [
         id: 'barbarian-warrior',
         name: 'Warrior',
         description: 'Classic barbarian warrior with sword and shield',
-        thumbnailUrl: '/themes/barbarian-warrior-thumb.jpg',
+        thumbnailUrl: '/themes/barbarian-warrior-thumb.svg',
         templateUrl: '/themes/barbarian-warrior-template.jpg',
         faceRegion: {
           x: 0.35,
