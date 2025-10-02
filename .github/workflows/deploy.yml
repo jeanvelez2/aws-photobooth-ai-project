@@ -217,15 +217,7 @@ jobs:
       with:
         name: build-artifacts
     
-    - name: Deploy temporary index.html to S3
-      run: |
-        BUCKET_NAME=$(aws cloudformation describe-stacks \
-          --stack-name PhotoboothStack-dev \
-          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-          --output text \
-          --region ${{ env.AWS_REGION }})
-        
-        aws s3 cp temp-index.html s3://$BUCKET_NAME/index.html
+    # Skip temporary index.html - deploy real frontend instead
     
     - name: Deploy frontend to S3
       run: |
@@ -243,10 +235,15 @@ jobs:
         
         if [ -d "frontend/dist" ] && [ "$(ls -A frontend/dist)" ]; then
           echo "Deploying frontend build to S3..."
-          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete
+          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete --content-type-by-extension
           echo "Frontend deployed successfully"
         else
-          echo "Frontend dist directory not found or empty, keeping temporary index.html"
+          echo "ERROR: Frontend dist directory not found or empty!"
+          echo "Available directories:"
+          find . -name "dist" -type d
+          echo "Available files:"
+          find . -name "*.js" -o -name "*.html" | head -20
+          exit 1
         fi
     
     - name: Invalidate CloudFront
