@@ -224,16 +224,10 @@ export class PhotoboothStack extends cdk.Stack {
         enable: true,
         rollback: true,
       },
-      // Configure deployment settings for better performance
-      // deploymentConfiguration: {
-      //   minimumHealthyPercent: 50,
-      //   maximumPercent: 200,
-      //   deploymentCircuitBreaker: {
-      //     enable: true,
-      //     rollback: true,
-      //   },
-      // },
     });
+
+    // Attach service to target group
+    this.targetGroup.addTarget(service);
 
     // Configure comprehensive auto-scaling
     const scaling = service.autoScaleTaskCount({
@@ -257,16 +251,6 @@ export class PhotoboothStack extends cdk.Stack {
       disableScaleIn: false,
     });
 
-    // Request count based scaling
-    if (this.environmentConfig.autoScaling.targetRequestCount) {
-      scaling.scaleOnRequestCount('RequestCountScaling', {
-        requestsPerTarget: this.environmentConfig.autoScaling.targetRequestCount,
-        targetGroup: this.targetGroup,
-        scaleInCooldown: cdk.Duration.seconds(this.environmentConfig.autoScaling.scaleInCooldown),
-        scaleOutCooldown: cdk.Duration.seconds(this.environmentConfig.autoScaling.scaleOutCooldown),
-      });
-    }
-
     // Custom metric scaling for processing queue depth
     scaling.scaleOnMetric('QueueDepthScaling', {
       metric: new cloudwatch.Metric({
@@ -284,11 +268,8 @@ export class PhotoboothStack extends cdk.Stack {
         { lower: 15, upper: 30, change: +2 }, // Scale out by 2 if queue 15-30
         { lower: 30, change: +3 },  // Scale out by 3 if queue > 30
       ],
-      // adjustmentType: ecs.AdjustmentType.CHANGE_IN_CAPACITY, // Removed due to CDK version compatibility
       cooldown: cdk.Duration.minutes(2),
     });
-
-
 
     return service;
   }
@@ -526,11 +507,7 @@ export class PhotoboothStack extends cdk.Stack {
 
   private createCloudFrontDistribution(): cloudfront.Distribution {
     // Create S3 origin for static website hosting
-    const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
-      originPath: '/static',
-    });
-
-
+    const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(this.bucket);
 
     // Create ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(this.loadBalancer.loadBalancerDnsName, {
@@ -735,7 +712,5 @@ export class PhotoboothStack extends cdk.Stack {
       value: this.loadBalancer.loadBalancerArn,
       description: 'Application Load Balancer ARN',
     });
-
-
   }
 }

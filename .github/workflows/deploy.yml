@@ -218,7 +218,7 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/static/ --delete
+        aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
     
     - name: Invalidate CloudFront
       run: |
