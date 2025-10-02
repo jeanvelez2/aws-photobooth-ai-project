@@ -267,42 +267,33 @@ jobs:
     
     - name: Seed themes and upload placeholder images
       run: |
-        # Get S3 bucket name
         BUCKET_NAME=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
           --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        # Create placeholder images for themes
         mkdir -p temp-themes
         
-        # Create simple placeholder SVGs for each theme
         echo '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#8B4513"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Barbarian Theme</text></svg>' > temp-themes/barbarian-thumb.jpg
         echo '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#4169E1"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Greek Theme</text></svg>' > temp-themes/greek-thumb.jpg
         echo '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#9932CC"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Mystic Theme</text></svg>' > temp-themes/mystic-thumb.jpg
         echo '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#FF69B4"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Anime Theme</text></svg>' > temp-themes/anime-thumb.jpg
         
-        # Upload placeholder images to S3
         aws s3 sync temp-themes/ s3://$BUCKET_NAME/themes/ --content-type "image/svg+xml"
-        
-        # Clean up
         rm -rf temp-themes
     
     - name: Seed theme data
       run: |
-        # Get CloudFront URL for API calls
-        CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+        ALB_URL=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
-          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+          --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerUrl`].OutputValue' \
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        # Wait for service to be ready
-        sleep 60
+        sleep 30
         
-        # Seed themes via API
-        curl -X POST "https://$CLOUDFRONT_URL/api/themes/seed" \
+        curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
           --max-time 30 \
           --retry 3 \
@@ -310,81 +301,23 @@ jobs:
     
     - name: Run post-deployment validation
       run: |
-        CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
-          --stack-name PhotoboothStack-dev \
-          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
-          --output text \
-          --region ${{ env.AWS_REGION }})
-        
-        echo "Testing health endpoint via CloudFront..."
-        curl -f "https://$CLOUDFRONT_URL/api/health" || echo "Health check failed"
-        
-        echo "Testing themes endpoint..."
-        curl -f "https://$CLOUDFRONT_URL/api/themes" || echo "Themes endpoint failed"
-        
-        echo "Deployment completed successfully!"
-        echo "Application URL: https://$CLOUDFRONT_URL"lth endpoint via CloudFront: https://$CLOUDFRONT_URL/api/health"
-        curl -f "https://$CLOUDFRONT_URL/api/health" || {
-          echo "CloudFront health check failed, trying ALB directly..."
-          echo "Testing health endpoint via ALB: $ALB_URL/api/health"
-          curl -f "$ALB_URL/api/health" || echo "Health check failed but continuing deployment"
-        }
-        
-        echo "Deployment validation successful!"
-    
-    - name: Seed theme data and upload images
-      run: |
-        BUCKET_NAME=$(aws cloudformation describe-stacks \
-          --stack-name PhotoboothStack-dev \
-          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-          --output text \
-          --region ${{ env.AWS_REGION }})
-        
         ALB_URL=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
           --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerUrl`].OutputValue' \
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        echo "Seeding theme data via ALB: $ALB_URL/api/themes/seed"
-        curl -X POST "$ALB_URL/api/themes/seed" || echo "Theme seeding failed but continuing"
+        CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
         
-        echo "Creating themed placeholder images..."
-        mkdir -p themes
+        echo "Testing health endpoint via ALB..."
+        curl -f "$ALB_URL/api/health" || echo "ALB health check failed"
         
-        # Create simple SVG placeholders
-        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#8B4513"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">BARBARIAN</text></svg>' > themes/barbarian-thumb.jpg
-        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#4169E1"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">GREEK</text></svg>' > themes/greek-thumb.jpg
-        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#9932CC"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">MYSTIC</text></svg>' > themes/mystic-thumb.jpg
-        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#FF69B4"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">ANIME</text></svg>' > themes/anime-thumb.jpg
+        echo "Testing themes endpoint via ALB..."
+        curl -f "$ALB_URL/api/themes" || echo "ALB themes endpoint failed"
         
-        aws s3 sync themes/ s3://$BUCKET_NAME/themes/ || echo "Theme image upload failed but continuing"
-
-  # Staging deployment (optional)
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [deploy-infrastructure]
-    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-staging]')
-    environment: staging
-    
-    permissions:
-      id-token: write
-      contents: read
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
-        aws-region: ${{ env.AWS_REGION }}
-        role-session-name: GitHubActions-StagingDeploy
-    
-    # Similar steps as dev deployment but for staging environment
-    - name: Deploy to staging
-      run: |
-        echo "Deploying to staging environment..."
-        # Add staging deployment steps here
+        echo "Deployment completed successfully!"
+        echo "Application URL: https://$CLOUDFRONT_URL"
