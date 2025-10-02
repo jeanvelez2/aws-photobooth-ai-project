@@ -10,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as xray from 'aws-cdk-lib/aws-xray';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config/environments';
@@ -389,8 +390,9 @@ export class PhotoboothStack extends cdk.Stack {
     });
 
     // Add container to task definition - will use ECR image from separate stack
+    const backendRepository = ecr.Repository.fromRepositoryName(this, 'BackendRepositoryRef', `ai-photobooth-backend-${this.environmentConfig.environment}`);
     const container = taskDefinition.addContainer('ProcessingContainer', {
-      image: ecs.ContainerImage.fromRegistry(`${this.account}.dkr.ecr.${this.region}.amazonaws.com/ai-photobooth-backend-${this.environmentConfig.environment}:latest`),
+      image: ecs.ContainerImage.fromEcrRepository(backendRepository, 'latest'),
       memoryLimitMiB: 3584,
       cpu: 1792,
       logging: ecs.LogDrivers.awsLogs({
