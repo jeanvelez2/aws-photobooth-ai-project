@@ -54,6 +54,11 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
     return next();
   }
 
+  // Allow HTTP for health check endpoints from ELB
+  if (req.path === '/api/health' && req.get('User-Agent')?.includes('ELB-HealthChecker')) {
+    return next();
+  }
+
   // Check if request is secure
   const isSecure = req.secure || 
                    req.headers['x-forwarded-proto'] === 'https' ||
