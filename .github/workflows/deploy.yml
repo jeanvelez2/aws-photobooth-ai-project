@@ -93,7 +93,12 @@ jobs:
         CI: true
     
     - name: Build applications
-      run: npm run build
+      run: |
+        # Build shared package first
+        npm run build --workspace=shared
+        # Then build other packages
+        npm run build --workspace=backend
+        npm run build --workspace=frontend
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
