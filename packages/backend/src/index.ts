@@ -75,10 +75,17 @@ app.use(
       if (!origin) return callback(null, true);
       
       const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL].filter(Boolean)
+        ? [
+            process.env.FRONTEND_URL,
+            'https://d1sb1uvkfiy4hq.cloudfront.net'
+          ].filter(Boolean)
         : ['http://localhost:3000', 'http://localhost:5173'];
       
-      if (allowedOrigins.includes(origin)) {
+      // Also allow any CloudFront domain in production
+      const isCloudFront = process.env.NODE_ENV === 'production' && 
+                          origin && origin.match(/^https:\/\/.*\.cloudfront\.net$/);
+      
+      if (allowedOrigins.includes(origin) || isCloudFront) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
