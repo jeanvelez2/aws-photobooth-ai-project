@@ -15,7 +15,7 @@ export function useThemes() {
     queryKey: ['themes'],
     queryFn: () => themeService.getAllThemes(),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
@@ -30,7 +30,7 @@ export function useTheme(id: string | undefined) {
     queryFn: () => id ? themeService.getThemeById(id) : null,
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
@@ -45,7 +45,7 @@ export function useThemeVariant(themeId: string | undefined, variantId: string |
     queryFn: () => themeId && variantId ? themeService.getThemeVariant(themeId, variantId) : null,
     enabled: !!(themeId && variantId),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });

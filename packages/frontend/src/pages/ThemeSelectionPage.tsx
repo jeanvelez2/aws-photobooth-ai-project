@@ -12,7 +12,8 @@ export default function ThemeSelectionPage() {
   const [selectedVariant, setSelectedVariant] = useState<ThemeVariant | null>(null);
   
   // Fetch themes from API
-  const { data: themes = [], isLoading, error } = useThemes();
+  const { data: themesData = [], isLoading: themesLoading, error: themesError } = useThemes();
+  const themes = themesData as Theme[];
   
   // Fetch themes from API
   const { data: themes = [], isLoading, error } = useThemes();
@@ -61,7 +62,7 @@ export default function ThemeSelectionPage() {
   const capturedPhotoUrl = state.app.currentPhoto?.dataUrl;
 
   // Show loading state
-  if (isLoading) {
+  if (themesLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center">
@@ -73,7 +74,7 @@ export default function ThemeSelectionPage() {
   }
 
   // Show error state
-  if (error) {
+  if (themesError) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center">
