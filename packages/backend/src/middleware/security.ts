@@ -54,8 +54,13 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
     return next();
   }
 
-  // Allow HTTP for health check endpoints from ELB
-  if (req.path === '/api/health' && req.get('User-Agent')?.includes('ELB-HealthChecker')) {
+  // Allow HTTP for health check endpoints from ELB and CloudFront
+  if (req.path === '/api/health' && (
+    req.get('User-Agent')?.includes('ELB-HealthChecker') ||
+    req.get('User-Agent')?.includes('Amazon CloudFront') ||
+    req.get('X-Forwarded-Proto') === 'https' ||
+    req.headers['cloudfront-viewer-country'] // CloudFront header
+  )) {
     return next();
   }
 
