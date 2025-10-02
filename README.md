@@ -201,13 +201,14 @@ Before deploying, ensure you have:
 2. **Create AWS OIDC Identity Provider**
    ```bash
    # Create OIDC identity provider for GitHub Actions
-   # AWS will automatically fetch and validate the certificate thumbprint
+   # Using GitHub's official thumbprint for token.actions.githubusercontent.com
    aws iam create-open-id-connect-provider \
      --url https://token.actions.githubusercontent.com \
-     --client-id-list sts.amazonaws.com
+     --client-id-list sts.amazonaws.com \
+     --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
    ```
    
-   **Note**: The thumbprint is automatically fetched by AWS. If you prefer to specify it manually, use GitHub's official thumbprint: `6938fd4d98bab03faadb97b34396831e3780aea1`
+   **Note**: The thumbprint `6938fd4d98bab03faadb97b34396831e3780aea1` is GitHub's official value for their OIDC provider, documented in [GitHub's official documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services).
 
 3. **Create IAM Role for GitHub Actions**
    ```bash
@@ -445,12 +446,6 @@ Ensure these files exist in your project root:
 - `docker-compose.yml` - For local development
 - `.github/workflows/deploy.yml` - GitHub Actions workflow (automatically created)
 
-#### **Removed Files**
-
-The following files have been removed as they're no longer needed with GitHub Actions:
-- ❌ `packages/infrastructure/templates/taskdef.json` - CDK manages task definitions directly
-- ❌ `packages/infrastructure/templates/appspec.yml` - No CodeDeploy needed
-- ❌ `packages/infrastructure/scripts/*-hook.sh` - No deployment hooks needed
 
 ### Rollback Procedures
 
