@@ -290,6 +290,34 @@ jobs:
         }
         
         echo "Deployment validation successful!"
+    
+    - name: Seed theme data and upload images
+      run: |
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        ALB_URL=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerUrl`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Seeding theme data via ALB: $ALB_URL/api/themes/seed"
+        curl -X POST "$ALB_URL/api/themes/seed" || echo "Theme seeding failed but continuing"
+        
+        echo "Creating themed placeholder images..."
+        mkdir -p themes
+        
+        # Create simple SVG placeholders
+        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#8B4513"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">BARBARIAN</text></svg>' > themes/barbarian-thumb.jpg
+        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#4169E1"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">GREEK</text></svg>' > themes/greek-thumb.jpg
+        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#9932CC"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">MYSTIC</text></svg>' > themes/mystic-thumb.jpg
+        echo '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#FF69B4"/><text x="100" y="75" text-anchor="middle" fill="white" font-size="16">ANIME</text></svg>' > themes/anime-thumb.jpg
+        
+        aws s3 sync themes/ s3://$BUCKET_NAME/themes/ || echo "Theme image upload failed but continuing"
 
   # Staging deployment (optional)
   deploy-staging:
