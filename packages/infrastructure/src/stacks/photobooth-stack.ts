@@ -626,6 +626,15 @@ export class PhotoboothStack extends cdk.Stack {
             minTtl: cdk.Duration.seconds(0),
           }),
         },
+        // Catch-all for any other API routes
+        '/api/*': {
+          origin: albOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        },
         // Static JS/CSS files - long cache with versioning
         '*.js': {
           origin: s3Origin,
