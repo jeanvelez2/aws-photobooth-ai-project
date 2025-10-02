@@ -232,13 +232,15 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
+        echo "Current directory contents:"
+        ls -la
         echo "Checking for frontend build artifacts..."
-        ls -la packages/frontend/ || echo "packages/frontend not found"
-        ls -la packages/frontend/dist/ || echo "packages/frontend/dist not found"
+        ls -la frontend/ || echo "frontend directory not found"
+        ls -la frontend/dist/ || echo "frontend/dist not found"
         
-        if [ -d "packages/frontend/dist" ] && [ "$(ls -A packages/frontend/dist)" ]; then
+        if [ -d "frontend/dist" ] && [ "$(ls -A frontend/dist)" ]; then
           echo "Deploying frontend build to S3..."
-          aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
+          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete
           echo "Frontend deployed successfully"
         else
           echo "Frontend dist directory not found or empty, keeping temporary index.html"
