@@ -261,8 +261,16 @@ jobs:
           --distribution-id $DISTRIBUTION_ID \
           --paths "/*"
     
-    - name: Wait for ECS service to be stable
+    - name: Force ECS service update
       run: |
+        echo "Forcing ECS service update to use new container image..."
+        aws ecs update-service \
+          --cluster photobooth-cluster-dev \
+          --service photobooth-processing-dev \
+          --force-new-deployment \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "Waiting for ECS service to be stable..."
         aws ecs wait services-stable \
           --cluster photobooth-cluster-dev \
           --services photobooth-processing-dev \
