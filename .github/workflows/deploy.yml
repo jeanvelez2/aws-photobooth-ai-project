@@ -154,8 +154,37 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         docker build -f Dockerfile.frontend.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # Push with retry logic
+        for i in {1..3}; do
+          echo "Push attempt $i/3..."
+          if docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG; then
+            echo "Successfully pushed $IMAGE_TAG"
+            break
+          else
+            echo "Push failed, attempt $i/3"
+            if [ $i -eq 3 ]; then
+              echo "All push attempts failed"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
+        
+        for i in {1..3}; do
+          echo "Push latest attempt $i/3..."
+          if docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest; then
+            echo "Successfully pushed latest"
+            break
+          else
+            echo "Push latest failed, attempt $i/3"
+            if [ $i -eq 3 ]; then
+              echo "All push attempts failed for latest"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
     
     - name: Build and push backend Docker image
       env:
@@ -164,8 +193,37 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         docker build -f Dockerfile.backend.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # Push with retry logic
+        for i in {1..3}; do
+          echo "Push attempt $i/3..."
+          if docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG; then
+            echo "Successfully pushed $IMAGE_TAG"
+            break
+          else
+            echo "Push failed, attempt $i/3"
+            if [ $i -eq 3 ]; then
+              echo "All push attempts failed"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
+        
+        for i in {1..3}; do
+          echo "Push latest attempt $i/3..."
+          if docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest; then
+            echo "Successfully pushed latest"
+            break
+          else
+            echo "Push latest failed, attempt $i/3"
+            if [ $i -eq 3 ]; then
+              echo "All push attempts failed for latest"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
     
   # Deploy full infrastructure after images are ready
   deploy-infrastructure:
