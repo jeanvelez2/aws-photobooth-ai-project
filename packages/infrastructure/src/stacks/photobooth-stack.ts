@@ -412,7 +412,7 @@ export class PhotoboothStack extends cdk.Stack {
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
       },
       healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:3001/health || exit 1'],
+        command: ['CMD-SHELL', 'curl -f http://localhost:3001/api/health || exit 1'],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -457,7 +457,7 @@ export class PhotoboothStack extends cdk.Stack {
     // Allow inbound traffic from ALB
     securityGroup.addIngressRule(
       ec2.Peer.securityGroupId(albSecurityGroup.securityGroupId),
-      ec2.Port.tcp(3000),
+      ec2.Port.tcp(3001),
       'Allow traffic from ALB'
     );
 
@@ -498,14 +498,14 @@ export class PhotoboothStack extends cdk.Stack {
     // Create target group for ECS service
     const targetGroup = new elbv2.ApplicationTargetGroup(this, 'EcsTargetGroup', {
       vpc,
-      port: 3000,
+      port: 3001,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        path: '/health',
+        path: '/api/health',
         protocol: elbv2.Protocol.HTTP,
-        port: '3000',
+        port: '3001',
         healthyHttpCodes: '200',
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
