@@ -18,6 +18,9 @@ COPY tsconfig.json ./
 RUN npm run build --workspace=shared
 RUN npm run build --workspace=backend
 
+# Copy built shared package to node_modules for runtime
+RUN cp -r packages/shared/dist/* node_modules/shared/ || mkdir -p node_modules/shared && cp -r packages/shared/dist/* node_modules/shared/
+
 # Remove dev dependencies for smaller image
 RUN npm ci --only=production
 

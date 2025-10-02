@@ -412,7 +412,7 @@ export class PhotoboothStack extends cdk.Stack {
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
       },
       healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:3000/health || exit 1'],
+        command: ['CMD-SHELL', 'curl -f http://localhost:3001/health || exit 1'],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -421,7 +421,7 @@ export class PhotoboothStack extends cdk.Stack {
     });
 
     container.addPortMappings({
-      containerPort: 3000,
+      containerPort: 3001,
       protocol: ecs.Protocol.TCP,
     });
 
