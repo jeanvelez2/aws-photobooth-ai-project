@@ -5,7 +5,7 @@ export const mockThemes: Theme[] = [
     id: 'barbarian',
     name: 'Barbarian',
     description: 'Fierce warrior from ancient times with rugged armor and battle-worn weapons',
-    thumbnailUrl: '/themes/barbarian-thumb.jpg',
+    thumbnailUrl: '/themes/barbarian-thumb.svg',
     templateUrl: '/themes/barbarian-template.jpg',
     variants: [
       {
@@ -77,7 +77,7 @@ export const mockThemes: Theme[] = [
     id: 'greek',
     name: 'Greek',
     description: 'Classical Greek mythology style with togas, laurels, and marble columns',
-    thumbnailUrl: '/themes/greek-thumb.jpg',
+    thumbnailUrl: '/themes/greek-thumb.svg',
     templateUrl: '/themes/greek-template.jpg',
     variants: [
       {
@@ -149,7 +149,7 @@ export const mockThemes: Theme[] = [
     id: 'mystic',
     name: 'Mystic',
     description: 'Magical and mysterious atmosphere with crystals, potions, and ethereal effects',
-    thumbnailUrl: '/themes/mystic-thumb.jpg',
+    thumbnailUrl: '/themes/mystic-thumb.svg',
     templateUrl: '/themes/mystic-template.jpg',
     variants: [
       {
@@ -221,7 +221,7 @@ export const mockThemes: Theme[] = [
     id: 'anime',
     name: 'Anime',
     description: 'Japanese animation style with vibrant colors and dynamic poses',
-    thumbnailUrl: '/themes/anime-thumb.jpg',
+    thumbnailUrl: '/themes/anime-thumb.svg',
     templateUrl: '/themes/anime-template.jpg',
     variants: [
       {
