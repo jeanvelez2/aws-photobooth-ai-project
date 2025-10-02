@@ -571,6 +571,21 @@ export class PhotoboothStack extends cdk.Stack {
         cachePolicy: staticAssetsCachePolicy,
         responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
       },
+      defaultRootObject: 'index.html',
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.minutes(5),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.minutes(5),
+        },
+      ],
       additionalBehaviors: {
         // API endpoints - no caching for dynamic content
         '/api/process*': {

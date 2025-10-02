@@ -210,6 +210,16 @@ jobs:
       with:
         name: build-artifacts
     
+    - name: Deploy temporary index.html to S3
+      run: |
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        aws s3 cp temp-index.html s3://$BUCKET_NAME/index.html
+    
     - name: Deploy frontend to S3
       run: |
         BUCKET_NAME=$(aws cloudformation describe-stacks \
@@ -218,7 +228,11 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
+        if [ -d "packages/frontend/dist" ]; then
+          aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
+        else
+          echo "Frontend dist directory not found, keeping temporary index.html"
+        fi
     
     - name: Invalidate CloudFront
       run: |
