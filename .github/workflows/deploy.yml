@@ -98,8 +98,11 @@ jobs:
         npm run build --workspace=shared
         echo "Building backend..."
         npm run build --workspace=backend
-        echo "Building frontend..."
-        npm run build --workspace=frontend
+        echo "Building frontend for production..."
+        cd packages/frontend
+        echo "VITE_API_URL=/api" > .env.production
+        npm run build
+        cd ../..
         echo "Checking build outputs..."
         ls -la packages/frontend/dist/ || echo "Frontend dist not found"
         ls -la packages/backend/dist/ || echo "Backend dist not found"

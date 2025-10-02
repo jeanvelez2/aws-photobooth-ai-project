@@ -23,8 +23,9 @@ export class ProcessingService {
   private readonly POLLING_INTERVAL = 2000; // 2 seconds
   private readonly MAX_PROCESSING_TIME = 30000; // 30 seconds
 
-  constructor(apiBaseUrl: string = '/api') {
-    this.API_BASE_URL = apiBaseUrl;
+  constructor(apiBaseUrl?: string) {
+    // Use environment variable or default to relative path
+    this.API_BASE_URL = apiBaseUrl || import.meta.env.VITE_API_URL || '/api';
   }
 
   /**

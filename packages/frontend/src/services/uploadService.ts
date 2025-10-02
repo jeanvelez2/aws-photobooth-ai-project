@@ -46,8 +46,9 @@ export class ImageUploadService {
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000; // 1 second
 
-  constructor(apiBaseUrl: string = '/api') {
-    this.API_BASE_URL = apiBaseUrl;
+  constructor(apiBaseUrl?: string) {
+    // Use environment variable or default to relative path
+    this.API_BASE_URL = apiBaseUrl || import.meta.env.VITE_API_URL || '/api';
   }
 
   /**
