@@ -163,44 +163,67 @@ export const ipWhitelist = (allowedIPs: string[] = []) => {
  * Security monitoring middleware
  */
 export const securityMonitoring = (req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.headers['x-request-id'] as string;
-  const suspiciousPatterns = [
-    /\.\.\//g, // Path traversal
-    /<script/gi, // XSS attempts
-    /union.*select/gi, // SQL injection
-    /javascript:/gi, // JavaScript injection
-    /vbscript:/gi, // VBScript injection
-    /onload=/gi, // Event handler injection
-    /onerror=/gi, // Error handler injection
-  ];
+  try {
+    const requestId = req.headers['x-request-id'] as string;
+    const suspiciousPatterns = [
+      /\.\.\//g, // Path traversal
+      /<script/gi, // XSS attempts
+      /union.*select/gi, // SQL injection
+      /javascript:/gi, // JavaScript injection
+      /vbscript:/gi, // VBScript injection
+      /onload=/gi, // Event handler injection
+      /onerror=/gi, // Error handler injection
+    ];
 
-  const requestData = JSON.stringify({
-    url: req.url,
-    query: req.query,
-    body: req.body,
-    headers: req.headers,
-  });
+    let requestData: string;
+    try {
+      requestData = JSON.stringify({
+        url: req.url,
+        query: req.query || {},
+        body: req.body || {},
+        headers: req.headers || {},
+      });
+    } catch (stringifyError) {
+      // If we can't stringify the data, skip monitoring but continue
+      logger.warn('Failed to stringify request data for security monitoring', {
+        requestId,
+        error: stringifyError instanceof Error ? stringifyError.message : 'Unknown error',
+        path: req.path,
+        method: req.method,
+      });
+      return next();
+    }
 
-  // Check for suspicious patterns
-  const suspiciousActivity = suspiciousPatterns.some(pattern => 
-    pattern.test(requestData)
-  );
+    // Check for suspicious patterns
+    const suspiciousActivity = suspiciousPatterns.some(pattern => 
+      pattern.test(requestData)
+    );
 
-  if (suspiciousActivity) {
-    logger.warn('Suspicious request detected', {
-      requestId,
-      ip: req.ip,
+    if (suspiciousActivity) {
+      logger.warn('Suspicious request detected', {
+        requestId,
+        ip: req.ip,
+        path: req.path,
+        method: req.method,
+        userAgent: req.get('User-Agent'),
+        suspiciousContent: requestData.substring(0, 500), // Limit logged content
+      });
+
+      // Could implement additional actions here:
+      // - Block the request
+      // - Add to temporary blacklist
+      // - Send alert to security team
+    }
+
+    next();
+  } catch (error) {
+    // If security monitoring fails, log the error but don't block the request
+    logger.error('Security monitoring middleware error', {
+      requestId: req.headers['x-request-id'],
+      error: error instanceof Error ? error.message : 'Unknown error',
       path: req.path,
       method: req.method,
-      userAgent: req.get('User-Agent'),
-      suspiciousContent: requestData.substring(0, 500), // Limit logged content
     });
-
-    // Could implement additional actions here:
-    // - Block the request
-    // - Add to temporary blacklist
-    // - Send alert to security team
+    next();
   }
-
-  next();
 };

@@ -71,7 +71,7 @@ export class PhotoboothStack extends cdk.Stack {
 
   private createS3Bucket(): s3.Bucket {
     const bucket = new s3.Bucket(this, 'PhotoboothBucket', {
-      bucketName: `ai-photobooth-${this.environmentConfig.environment}-${this.account}-${this.region}`,
+      bucketName: `ai-photobooth-${this.environmentConfig.environment}-${this.account}`,
       versioned: false,
       publicReadAccess: false,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -116,7 +116,7 @@ export class PhotoboothStack extends cdk.Stack {
 
   private createProcessingJobsTable(): dynamodb.Table {
     const table = new dynamodb.Table(this, 'ProcessingJobsTable', {
-      tableName: `photobooth-processing-jobs-${this.environmentConfig.environment}`,
+      tableName: `photobooth-processing-jobs-${this.environmentConfig.environment}-${this.account}`,
       partitionKey: {
         name: 'jobId',
         type: dynamodb.AttributeType.STRING,
@@ -147,7 +147,7 @@ export class PhotoboothStack extends cdk.Stack {
 
   private createThemesTable(): dynamodb.Table {
     return new dynamodb.Table(this, 'ThemesTable', {
-      tableName: `photobooth-themes-${this.environmentConfig.environment}`,
+      tableName: `photobooth-themes-${this.environmentConfig.environment}-${this.account}`,
       partitionKey: {
         name: 'themeId',
         type: dynamodb.AttributeType.STRING,

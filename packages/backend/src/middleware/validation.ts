@@ -55,25 +55,36 @@ export const validate = (validations: ValidationChain[]) => {
  * Input sanitization middleware
  */
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.headers['x-request-id'] as string;
+  try {
+    const requestId = req.headers['x-request-id'] as string;
 
-  // Sanitize request body
-  if (req.body && typeof req.body === 'object') {
-    req.body = sanitizeObject(req.body);
+    // Sanitize request body
+    if (req.body && typeof req.body === 'object') {
+      req.body = sanitizeObject(req.body);
+    }
+
+    // Sanitize query parameters
+    if (req.query && typeof req.query === 'object') {
+      req.query = sanitizeObject(req.query);
+    }
+
+    // Sanitize URL parameters
+    if (req.params && typeof req.params === 'object') {
+      req.params = sanitizeObject(req.params);
+    }
+
+    logger.debug('Input sanitization completed', { requestId, path: req.path });
+    next();
+  } catch (error) {
+    // If sanitization fails, log the error but don't block the request
+    logger.error('Input sanitization middleware error', {
+      requestId: req.headers['x-request-id'],
+      error: error instanceof Error ? error.message : 'Unknown error',
+      path: req.path,
+      method: req.method,
+    });
+    next();
   }
-
-  // Sanitize query parameters
-  if (req.query && typeof req.query === 'object') {
-    req.query = sanitizeObject(req.query);
-  }
-
-  // Sanitize URL parameters
-  if (req.params && typeof req.params === 'object') {
-    req.params = sanitizeObject(req.params);
-  }
-
-  logger.debug('Input sanitization completed', { requestId, path: req.path });
-  next();
 };
 
 /**
@@ -186,30 +197,43 @@ export const commonValidations = {
  * Security-focused validation middleware
  */
 export const securityValidation = (req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.headers['x-request-id'] as string;
-  const suspiciousPatterns = [
-    // SQL injection patterns
-    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi,
-    // XSS patterns
-    /<script[^>]*>.*?<\/script>/gi,
-    /javascript:/gi,
-    /vbscript:/gi,
-    /onload\s*=/gi,
-    /onerror\s*=/gi,
-    // Path traversal
-    /\.\.\//g,
-    /\.\.\\/g,
-    // Command injection (more specific patterns)
-    /;\s*(rm|del|format|shutdown|reboot|kill)/gi,
-    /\|\s*(nc|netcat|wget|curl|bash|sh|cmd)/gi,
-    /`[^`]*`/g, // Backtick command substitution
-  ];
+  try {
+    const requestId = req.headers['x-request-id'] as string;
+    const suspiciousPatterns = [
+      // SQL injection patterns
+      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi,
+      // XSS patterns
+      /<script[^>]*>.*?<\/script>/gi,
+      /javascript:/gi,
+      /vbscript:/gi,
+      /onload\s*=/gi,
+      /onerror\s*=/gi,
+      // Path traversal
+      /\.\.\//g,
+      /\.\.\\/g,
+      // Command injection (more specific patterns)
+      /;\s*(rm|del|format|shutdown|reboot|kill)/gi,
+      /\|\s*(nc|netcat|wget|curl|bash|sh|cmd)/gi,
+      /`[^`]*`/g, // Backtick command substitution
+    ];
 
-  const requestData = JSON.stringify({
-    body: req.body,
-    query: req.query,
-    params: req.params,
-  });
+    let requestData: string;
+    try {
+      requestData = JSON.stringify({
+        body: req.body || {},
+        query: req.query || {},
+        params: req.params || {},
+      });
+    } catch (stringifyError) {
+      // If we can't stringify the data, skip validation but log the issue
+      logger.warn('Failed to stringify request data for security validation', {
+        requestId,
+        error: stringifyError instanceof Error ? stringifyError.message : 'Unknown error',
+        path: req.path,
+        method: req.method,
+      });
+      return next();
+    }
 
   // Check for malicious patterns
   for (const pattern of suspiciousPatterns) {
@@ -233,6 +257,16 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
   }
 
   next();
+  } catch (error) {
+    // If security validation fails, log the error but don't block the request
+    logger.error('Security validation middleware error', {
+      requestId: req.headers['x-request-id'],
+      error: error instanceof Error ? error.message : 'Unknown error',
+      path: req.path,
+      method: req.method,
+    });
+    next();
+  }
 };
 
 /**

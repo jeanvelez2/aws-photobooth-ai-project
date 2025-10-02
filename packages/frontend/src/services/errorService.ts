@@ -497,6 +497,6 @@ export class ErrorService {
 // Export singleton instance
 export const errorService = new ErrorService({
   enableLogging: true,
-  enableTelemetry: process.env.NODE_ENV === 'production',
-  logEndpoint: process.env.VITE_ERROR_LOG_ENDPOINT,
+  enableTelemetry: import.meta.env.PROD,
+  logEndpoint: import.meta.env.VITE_ERROR_LOG_ENDPOINT,
 });

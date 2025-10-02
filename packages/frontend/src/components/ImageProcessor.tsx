@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { processingService, ProcessingError } from '../services/processingService';
+import { errorService } from '../services/errorService';
 import type { ProcessingRequest, ProcessingResult } from '../types';
 
 interface ImageProcessorProps {
@@ -130,7 +131,10 @@ export default function ImageProcessor({
       if (finalResult.status === 'completed') {
         onComplete(finalResult);
       } else if (finalResult.status === 'failed') {
-        const error = processingService.parseProcessingError(finalResult.error);
+        const error = errorService.parseError(finalResult.error, {
+          component: 'ImageProcessor',
+          action: 'processImage',
+        });
         onError(error);
       }
 
@@ -141,7 +145,10 @@ export default function ImageProcessor({
         return; // Don't show error for user cancellation
       }
 
-      const processingError = processingService.parseProcessingError(error);
+      const processingError = errorService.parseError(error, {
+        component: 'ImageProcessor',
+        action: 'processImage',
+      });
       onError(processingError);
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });

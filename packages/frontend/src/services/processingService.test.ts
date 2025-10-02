@@ -197,39 +197,7 @@ describe('ProcessingService', () => {
     });
   });
 
-  describe('parseProcessingError', () => {
-    it('should parse NO_FACE_DETECTED error correctly', () => {
-      const error = service.parseProcessingError({ type: 'NO_FACE_DETECTED' });
 
-      expect(error.type).toBe('NO_FACE_DETECTED');
-      expect(error.retryable).toBe(true);
-      expect(error.userMessage).toContain('couldn\'t detect a face');
-      expect(error.suggestions).toContain('Make sure your face is clearly visible');
-    });
-
-    it('should parse THEME_NOT_FOUND error correctly', () => {
-      const error = service.parseProcessingError({ type: 'THEME_NOT_FOUND' });
-
-      expect(error.type).toBe('THEME_NOT_FOUND');
-      expect(error.retryable).toBe(false);
-      expect(error.userMessage).toContain('theme is not available');
-    });
-
-    it('should handle unknown error types', () => {
-      const error = service.parseProcessingError({ type: 'UNKNOWN_ERROR_TYPE' });
-
-      expect(error.type).toBe('INTERNAL_ERROR');
-      expect(error.retryable).toBe(true);
-      expect(error.userMessage).toContain('Something went wrong');
-    });
-
-    it('should handle errors without type', () => {
-      const error = service.parseProcessingError(new Error('Network error'));
-
-      expect(error.type).toBe('INTERNAL_ERROR');
-      expect(error.retryable).toBe(true);
-    });
-  });
 
   describe('cancelProcessing', () => {
     it('should attempt to cancel processing', async () => {

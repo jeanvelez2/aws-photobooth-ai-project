@@ -27,6 +27,17 @@ export interface CicdStackProps extends cdk.StackProps {
   targetEnvironment: string;
 }
 
+/**
+ * OPTIONAL CI/CD Stack using AWS CodePipeline
+ * 
+ * Note: This stack is OPTIONAL and NOT USED with the GitHub Actions approach.
+ * The recommended deployment method is GitHub Actions (see .github/workflows/deploy.yml).
+ * 
+ * This stack can be:
+ * - Ignored (use GitHub Actions - recommended)
+ * - Removed entirely 
+ * - Used instead of GitHub Actions if you prefer AWS CodePipeline
+ */
 export class CicdStack extends cdk.Stack {
   public readonly pipeline: codepipeline.Pipeline;
   public readonly artifactsBucket: s3.Bucket;
@@ -52,12 +63,13 @@ export class CicdStack extends cdk.Stack {
     // Create Parameter Store parameters for environment configuration
     this.createParameterStoreParameters();
 
-    // Create Secrets Manager secrets
+    // Create Secrets Manager secrets (only GitHub token, others removed as unused)
     this.createSecretsManagerSecrets();
 
     // Create CodeBuild projects
     const frontendBuildProject = this.createFrontendBuildProject();
     const backendBuildProject = this.createBackendBuildProject();
+    const infrastructureBuildProject = this.createInfrastructureBuildProject();
     const deploymentValidationProject = this.createDeploymentValidationProject();
 
     // Create CodeDeploy application and deployment group
@@ -81,6 +93,7 @@ export class CicdStack extends cdk.Stack {
     this.pipeline = this.createCodePipeline(
       frontendBuildProject,
       backendBuildProject,
+      infrastructureBuildProject,
       deploymentValidationProject,
       application,
       deploymentGroup,
@@ -186,38 +199,13 @@ export class CicdStack extends cdk.Stack {
   }
 
   private createSecretsManagerSecrets(): void {
-    // GitHub token for source control access
+    // GitHub token for source control access (only needed if using this CI/CD stack)
     new secretsmanager.Secret(this, 'GitHubTokenSecret', {
       secretName: `/ai-photobooth/${this.targetEnvironment}/github-token`,
       description: 'GitHub personal access token for repository access',
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ username: 'github-user' }),
         generateStringKey: 'token',
-        excludeCharacters: '"@/\\',
-      },
-    });
-
-    // Database credentials (if needed for future database integration)
-    new secretsmanager.Secret(this, 'DatabaseCredentialsSecret', {
-      secretName: `/ai-photobooth/${this.targetEnvironment}/database-credentials`,
-      description: 'Database connection credentials',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({ username: 'admin' }),
-        generateStringKey: 'password',
-        excludeCharacters: '"@/\\',
-      },
-    });
-
-    // API keys for external services
-    new secretsmanager.Secret(this, 'ExternalApiKeysSecret', {
-      secretName: `/ai-photobooth/${this.targetEnvironment}/external-api-keys`,
-      description: 'API keys for external services',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({
-          rekognitionApiKey: 'placeholder',
-          monitoringApiKey: 'placeholder',
-        }),
-        generateStringKey: 'secretKey',
         excludeCharacters: '"@/\\',
       },
     });
@@ -469,8 +457,130 @@ export class CicdStack extends cdk.Stack {
         },
       },
     });
-  }  
-private createDeploymentValidationProject(): codebuild.Project {
+  }
+
+  private createInfrastructureBuildProject(): codebuild.Project {
+    const buildRole = new iam.Role(this, 'InfrastructureBuildRole', {
+      assumedBy: new iam.ServicePrincipal('codebuild.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLogsFullAccess'),
+      ],
+      inlinePolicies: {
+        InfrastructureDeployPolicy: new iam.PolicyDocument({
+          statements: [
+            // CDK deployment permissions
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cloudformation:*',
+                'iam:*',
+                's3:*',
+                'dynamodb:*',
+                'ecs:*',
+                'ec2:*',
+                'elasticloadbalancing:*',
+                'cloudfront:*',
+                'rekognition:*',
+                'cloudwatch:*',
+                'logs:*',
+                'ecr:*',
+                'codebuild:*',
+                'codedeploy:*',
+                'codepipeline:*',
+                'events:*',
+                'lambda:*',
+                'xray:*',
+                'ssm:*',
+                'secretsmanager:*',
+                'codestar-connections:*',
+              ],
+              resources: ['*'],
+            }),
+            // CDK bootstrap permissions
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'sts:AssumeRole',
+              ],
+              resources: [
+                `arn:aws:iam::*:role/cdk-*`,
+              ],
+            }),
+          ],
+        }),
+      },
+    });
+
+    return new codebuild.Project(this, 'InfrastructureBuildProject', {
+      projectName: `ai-photobooth-infrastructure-${this.targetEnvironment}`,
+      role: buildRole,
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+        computeType: codebuild.ComputeType.MEDIUM,
+        privileged: false,
+      },
+      source: codebuild.Source.gitHub({
+        owner: 'your-github-username', // Replace with actual GitHub username
+        repo: 'ai-photobooth',
+      }),
+      buildSpec: codebuild.BuildSpec.fromObject({
+        version: '0.2',
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '18',
+            },
+            commands: [
+              'echo Installing AWS CDK...',
+              'npm install -g aws-cdk@latest',
+              'cdk --version',
+            ],
+          },
+          pre_build: {
+            commands: [
+              'echo Installing dependencies...',
+              'cd packages/infrastructure',
+              'npm ci',
+              'echo Checking for infrastructure changes...',
+              'cdk diff PhotoboothStack-' + this.targetEnvironment + ' --context environment=' + this.targetEnvironment + ' || echo "No infrastructure changes detected"',
+            ],
+          },
+          build: {
+            commands: [
+              'echo Deploying infrastructure...',
+              'cdk deploy PhotoboothStack-' + this.targetEnvironment + ' --context environment=' + this.targetEnvironment + ' --require-approval never --verbose',
+              'echo Infrastructure deployment completed',
+            ],
+          },
+          post_build: {
+            commands: [
+              'echo Infrastructure deployment finished on `date`',
+              'echo Outputting stack information...',
+              'aws cloudformation describe-stacks --stack-name PhotoboothStack-' + this.targetEnvironment + ' --query "Stacks[0].Outputs" || echo "No outputs available"',
+            ],
+          },
+        },
+        env: {
+          'exported-variables': [
+            'AWS_DEFAULT_REGION',
+            'AWS_ACCOUNT_ID',
+          ],
+        },
+      }),
+      timeout: cdk.Duration.minutes(60), // Infrastructure deployments can take longer
+      logging: {
+        cloudWatch: {
+          logGroup: new logs.LogGroup(this, 'InfrastructureBuildLogGroup', {
+            logGroupName: `/aws/codebuild/ai-photobooth-infrastructure-${this.targetEnvironment}`,
+            retention: this.environmentConfig.logRetentionDays as logs.RetentionDays,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+          }),
+        },
+      },
+    });
+  }
+
+  private createDeploymentValidationProject(): codebuild.Project {
     const validationRole = new iam.Role(this, 'ValidationBuildRole', {
       assumedBy: new iam.ServicePrincipal('codebuild.amazonaws.com'),
       managedPolicies: [
@@ -592,9 +702,9 @@ private createDeploymentValidationProject(): codebuild.Project {
         serviceName: ecsServiceName,
         cluster: ecs.Cluster.fromClusterAttributes(this, 'ImportedCluster', {
           clusterName: ecsClusterName,
-          vpc: ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', {
-            vpcId: 'vpc-placeholder',
-            availabilityZones: ['us-east-1a', 'us-east-1b'],
+          // Note: This CI/CD stack is optional - GitHub Actions is the recommended approach
+          vpc: ec2.Vpc.fromLookup(this, 'ImportedVpc', {
+            isDefault: true, // Use default VPC instead of placeholder
           }),
           securityGroups: [],
         }),
@@ -603,7 +713,10 @@ private createDeploymentValidationProject(): codebuild.Project {
       blueGreenDeploymentConfig: {
         listener: elbv2.ApplicationListener.fromApplicationListenerAttributes(this, 'ImportedListener', {
           listenerArn: `arn:aws:elasticloadbalancing:${this.region}:${this.account}:listener/app/photobooth-alb-${this.targetEnvironment}/*/`,
-          securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, 'ImportedAlbSg', 'sg-placeholder'),
+          // Note: This references the ALB created by the main PhotoboothStack
+          securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, 'ImportedAlbSg', 
+            `sg-${this.targetEnvironment}-alb`
+          ),
         }),
         blueTargetGroup: elbv2.ApplicationTargetGroup.fromTargetGroupAttributes(this, 'ImportedBlueTargetGroup', {
           targetGroupArn: `arn:aws:elasticloadbalancing:${this.region}:${this.account}:targetgroup/photobooth-tg-${this.targetEnvironment}/*`,
@@ -1003,6 +1116,7 @@ async function handleDeploymentEvent(detail) {
   private createCodePipeline(
     frontendBuildProject: codebuild.Project,
     backendBuildProject: codebuild.Project,
+    infrastructureBuildProject: codebuild.Project,
     validationProject: codebuild.Project,
     codeDeployApp: codedeploy.EcsApplication,
     deploymentGroup: codedeploy.EcsDeploymentGroup,
@@ -1036,6 +1150,7 @@ async function handleDeploymentEvent(detail) {
               resources: [
                 frontendBuildProject.projectArn,
                 backendBuildProject.projectArn,
+                infrastructureBuildProject.projectArn,
                 validationProject.projectArn,
               ],
             }),
@@ -1118,6 +1233,19 @@ async function handleDeploymentEvent(detail) {
               }),
               output: sourceOutput,
               trigger: codepipelineActions.GitHubTrigger.WEBHOOK,
+            }),
+          ],
+        },
+        
+        // Infrastructure Deployment Stage - Deploy infrastructure changes first
+        {
+          stageName: 'InfrastructureDeployment',
+          actions: [
+            new codepipelineActions.CodeBuildAction({
+              actionName: 'Deploy_Infrastructure',
+              project: infrastructureBuildProject,
+              input: sourceOutput,
+              runOrder: 1,
             }),
           ],
         },

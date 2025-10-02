@@ -187,7 +187,7 @@ class PerformanceMonitor {
       });
 
       // Send to monitoring service in production
-      if (process.env.NODE_ENV === 'production') {
+      if (import.meta.env.PROD) {
         this.reportMetric(metric, value, budget, true);
       }
     } else {
@@ -216,7 +216,7 @@ class PerformanceMonitor {
   public recordError(errorType: string) {
     this.metrics.errorRate = (this.metrics.errorRate || 0) + 1;
     
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.PROD) {
       this.reportError(errorType);
     }
   }

@@ -58,16 +58,20 @@ const createApp = () => {
   app.use('/api', apiRoutes);
   
   // 404 handler for API routes
-  app.use('/api/*', (req, res) => {
-    res.status(404).json({ 
-      error: true,
-      message: 'API endpoint not found',
-      code: 'ENDPOINT_NOT_FOUND',
-    });
+  app.use('/api', (req, res, next) => {
+    if (!res.headersSent) {
+      res.status(404).json({ 
+        error: true,
+        message: 'API endpoint not found',
+        code: 'ENDPOINT_NOT_FOUND',
+      });
+    } else {
+      next();
+    }
   });
 
   // Global 404 handler
-  app.use('*', (req, res) => {
+  app.use((req, res) => {
     res.status(404).json({ 
       error: true,
       message: 'Route not found',

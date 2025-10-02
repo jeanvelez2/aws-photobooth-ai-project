@@ -14,7 +14,7 @@ vi.mock('../services/processingService', () => ({
   processingService: {
     startProcessing: vi.fn(),
     pollProcessingStatus: vi.fn(),
-    parseProcessingError: vi.fn(),
+
     cancelProcessing: vi.fn(),
   }
 }));

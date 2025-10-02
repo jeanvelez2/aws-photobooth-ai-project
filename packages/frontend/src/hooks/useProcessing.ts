@@ -6,6 +6,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { processingService, ProcessingError } from '../services/processingService';
+import { errorService } from '../services/errorService';
 import type { ProcessingRequest, ProcessingResult } from '../types';
 
 interface UseProcessingOptions {
@@ -102,7 +103,10 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       if (finalResult.status === 'completed') {
         options.onComplete?.(finalResult);
       } else if (finalResult.status === 'failed') {
-        const processingError = processingService.parseProcessingError(finalResult.error);
+        const processingError = errorService.parseError(finalResult.error, {
+          component: 'useProcessing',
+          action: 'processImage',
+        });
         setError(processingError);
         options.onError?.(processingError);
       }
@@ -113,7 +117,10 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       }
 
       console.error('Processing failed:', err);
-      const processingError = processingService.parseProcessingError(err);
+      const processingError = errorService.parseError(err, {
+        component: 'useProcessing',
+        action: 'processImage',
+      });
       setError(processingError);
       dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
       options.onError?.(processingError);

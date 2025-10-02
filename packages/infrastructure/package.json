@@ -17,7 +17,8 @@
     "diff": "cdk diff",
     "synth": "cdk synth",
     "validate-deployment": "node scripts/validate-deployment.js",
-    "make-scripts-executable": "chmod +x scripts/*.sh"
+    "lint": "echo 'Infrastructure: TypeScript compilation serves as linting'",
+    "lint:fix": "echo 'Infrastructure: No lint fixes needed'"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

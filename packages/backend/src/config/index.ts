@@ -13,8 +13,8 @@ export const config = {
     },
     dynamodb: {
       processingJobsTable:
-        process.env.DYNAMODB_PROCESSING_JOBS_TABLE || 'processing-jobs-dev',
-      themesTable: process.env.DYNAMODB_THEMES_TABLE || 'themes-dev',
+        process.env.PROCESSING_JOBS_TABLE || 'processing-jobs-dev',
+      themesTable: process.env.THEMES_TABLE || 'themes-dev',
       useLocal: process.env.USE_LOCAL_DYNAMODB === 'true',
     },
   },

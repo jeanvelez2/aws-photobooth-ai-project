@@ -415,7 +415,7 @@ describe('ThemeService', () => {
       );
     });
 
-    it.skip('should validate color adjustments', async ()> { =
+    it.skip('should validate color adjustments', async () => {
       const invalidVariant = {
         ...mockTheme.variants[0],
         colorAdjustments: {

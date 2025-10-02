@@ -28,13 +28,14 @@ describe('Security Integration Tests', () => {
     // Trust proxy for testing
     app.set('trust proxy', 1);
     
-    // Apply security middleware
+    // Apply security middleware in a safer order
     app.use(securityHeaders);
     app.use(secureCookies);
     app.use(requestSizeLimiter(1000)); // 1KB limit for testing
     app.use(securityMonitoring);
-    app.use(validateContentType(['application/json']));
-    app.use(express.json());
+    app.use(validateContentType(['application/json'])); // Only allow JSON
+    app.use(express.json({ limit: '1kb' })); // Move after content type validation
+    app.use(express.urlencoded({ extended: true, limit: '1kb' }));
     app.use(sanitizeInput);
     app.use(securityValidation);
     

@@ -260,16 +260,7 @@ export class ProcessingService {
     }
   }
 
-  /**
-   * Parse processing error and provide user-friendly information
-   * @deprecated Use errorService.parseError instead
-   */
-  parseProcessingError(error: any): ProcessingError {
-    return errorService.parseError(error, {
-      component: 'ProcessingService',
-      action: 'parseProcessingError',
-    });
-  }
+
 
   /**
    * Retry processing with the same parameters and enhanced error handling

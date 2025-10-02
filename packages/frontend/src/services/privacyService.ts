@@ -19,7 +19,7 @@ export interface DataDeletionRequest {
 export class PrivacyService {
   private readonly CONSENT_STORAGE_KEY = 'photobooth_consent';
   private readonly PRIVACY_VERSION = '1.0';
-  private readonly API_BASE_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || 'http://localhost:3001';
+  private readonly API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   /**
    * Check if user has given valid consent

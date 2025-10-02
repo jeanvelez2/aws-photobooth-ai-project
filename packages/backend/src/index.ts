@@ -121,22 +121,26 @@ app.use('/', healthRoutes);
 // API routes
 app.use('/api', apiRoutes);
 
-// 404 handler for API routes
-app.use('/api/*', (req, res) => {
-  logger.warn('API route not found', {
-    path: req.path,
-    method: req.method,
-    ip: req.ip,
-  });
-  res.status(404).json({ 
-    error: true,
-    message: 'API endpoint not found',
-    code: 'ENDPOINT_NOT_FOUND',
-  });
+// 404 handler for API routes - catch unmatched API routes
+app.use('/api', (req, res, next) => {
+  if (!res.headersSent) {
+    logger.warn('API route not found', {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+    });
+    res.status(404).json({ 
+      error: true,
+      message: 'API endpoint not found',
+      code: 'ENDPOINT_NOT_FOUND',
+    });
+  } else {
+    next();
+  }
 });
 
 // Global 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ 
     error: true,
     message: 'Route not found',

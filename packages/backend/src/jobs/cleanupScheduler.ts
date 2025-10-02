@@ -90,7 +90,7 @@ export class CleanupScheduler {
     lastRun: string | null;
   } {
     return {
-      isRunning: this.cleanupJob !== null && this.cleanupJob.running,
+      isRunning: this.cleanupJob !== null,
       nextRun: this.cleanupJob ? 'Daily at 2:00 AM UTC' : null,
       lastRun: null, // This would need to be tracked separately
     };
