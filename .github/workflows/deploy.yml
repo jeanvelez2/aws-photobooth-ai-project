@@ -228,10 +228,16 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        if [ -d "packages/frontend/dist" ]; then
+        echo "Checking for frontend build artifacts..."
+        ls -la packages/frontend/ || echo "packages/frontend not found"
+        ls -la packages/frontend/dist/ || echo "packages/frontend/dist not found"
+        
+        if [ -d "packages/frontend/dist" ] && [ "$(ls -A packages/frontend/dist)" ]; then
+          echo "Deploying frontend build to S3..."
           aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
+          echo "Frontend deployed successfully"
         else
-          echo "Frontend dist directory not found, keeping temporary index.html"
+          echo "Frontend dist directory not found or empty, keeping temporary index.html"
         fi
     
     - name: Invalidate CloudFront
@@ -263,8 +269,19 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
-        echo "Testing health endpoint: $ALB_URL/api/health"
-        curl -f "$ALB_URL/api/health" || exit 1
+        # Test via CloudFront (HTTPS) instead of ALB (HTTP)
+        CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+          --stack-name PhotoboothStack-dev \
+          --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Testing health endpoint via CloudFront: https://$CLOUDFRONT_URL/api/health"
+        curl -f "https://$CLOUDFRONT_URL/api/health" || {
+          echo "CloudFront health check failed, trying ALB directly..."
+          echo "Testing health endpoint via ALB: $ALB_URL/api/health"
+          curl -f "$ALB_URL/api/health" || exit 1
+        }
         
         echo "Deployment validation successful!"
 
