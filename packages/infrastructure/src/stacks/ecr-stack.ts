@@ -32,7 +32,7 @@ export class EcrStack extends cdk.Stack {
         },
         {
           maxImageCount: 5,
-          tagStatus: ecr.TagStatus.ANY,
+          tagStatus: ecr.TagStatus.TAGGED,
           tagPrefixList: ['latest'],
         },
       ],
@@ -48,7 +48,7 @@ export class EcrStack extends cdk.Stack {
         },
         {
           maxImageCount: 5,
-          tagStatus: ecr.TagStatus.ANY,
+          tagStatus: ecr.TagStatus.TAGGED,
           tagPrefixList: ['latest'],
         },
       ],
