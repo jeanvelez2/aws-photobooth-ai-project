@@ -412,7 +412,7 @@ export class PhotoboothStack extends cdk.Stack {
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
       },
       healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:3001/api/health || exit 1'],
+        command: ['CMD-SHELL', 'nc -z localhost 3001 || exit 1'],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -507,10 +507,10 @@ export class PhotoboothStack extends cdk.Stack {
         protocol: elbv2.Protocol.HTTP,
         port: '3001',
         healthyHttpCodes: '200',
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
+        interval: cdk.Duration.seconds(60),
+        timeout: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,
-        unhealthyThresholdCount: 3,
+        unhealthyThresholdCount: 5,
       },
     });
 
@@ -525,10 +525,29 @@ export class PhotoboothStack extends cdk.Stack {
   }
 
   private createCloudFrontDistribution(): cloudfront.Distribution {
+    // Create Origin Access Control for S3
+    const originAccessControl = new cloudfront.OriginAccessControl(this, 'S3OriginAccessControl', {
+      description: 'Origin Access Control for S3 bucket',
+    });
+
     // Create S3 origin for static website hosting
     const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
       originPath: '/static',
+      originAccessControl,
     });
+
+    // Add bucket policy to allow CloudFront access
+    this.bucket.addToResourcePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+      actions: ['s3:GetObject'],
+      resources: [this.bucket.arnForObjects('*')],
+      conditions: {
+        StringEquals: {
+          'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/*`,
+        },
+      },
+    }));
 
     // Create ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(this.loadBalancer.loadBalancerDnsName, {
