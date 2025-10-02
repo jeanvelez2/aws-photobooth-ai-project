@@ -53,8 +53,8 @@ app.use(metricsMiddleware);
 // Security monitoring (detect suspicious patterns early)
 app.use(securityMonitoring);
 
-// Enhanced security headers
-app.use(securityHeaders);
+// Temporarily disable security headers for debugging
+// app.use(securityHeaders);
 
 // Basic helmet configuration (additional to our custom security headers)
 app.use(helmet({
@@ -68,29 +68,10 @@ app.use(secureCookies);
 // Request size limiting
 app.use(requestSizeLimiter(10 * 1024 * 1024)); // 10MB limit
 
+// Temporarily allow all origins for debugging
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, etc.)
-      if (!origin) return callback(null, true);
-      
-      const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? [
-            process.env.FRONTEND_URL,
-            'https://d1sb1uvkfiy4hq.cloudfront.net'
-          ].filter(Boolean)
-        : ['http://localhost:3000', 'http://localhost:5173'];
-      
-      // Also allow any CloudFront domain in production
-      const isCloudFront = process.env.NODE_ENV === 'production' && 
-                          origin && origin.match(/^https:\/\/.*\.cloudfront\.net$/);
-      
-      if (allowedOrigins.includes(origin) || isCloudFront) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
