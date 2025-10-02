@@ -77,6 +77,7 @@ export class ThemeService {
       this.validateTheme(theme);
 
       const themeRecord = {
+        themeId: theme.id, // DynamoDB table uses themeId as partition key
         ...theme,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -85,8 +86,8 @@ export class ThemeService {
 
       await this.dynamoClient.send(new PutCommand({
         TableName: this.config.tableName,
-        Item: themeRecord,
-        ConditionExpression: 'attribute_not_exists(id)' // Prevent overwriting existing themes
+        Item: themeRecord
+        // Remove condition to allow overwriting during seeding
       }));
 
       // Clear cache
@@ -190,7 +191,7 @@ export class ThemeService {
       try {
         const result = await this.dynamoClient.send(new GetCommand({
           TableName: this.config.tableName,
-          Key: { id }
+          Key: { themeId: id }
         }));
 
         if (!result.Item || !result.Item.isActive) {
@@ -286,7 +287,7 @@ export class ThemeService {
 
       const result = await this.dynamoClient.send(new UpdateCommand({
         TableName: this.config.tableName,
-        Key: { id },
+        Key: { themeId: id },
         UpdateExpression: `SET ${updateExpression.join(', ')}`,
         ExpressionAttributeNames: expressionAttributeNames,
         ExpressionAttributeValues: expressionAttributeValues,
@@ -318,7 +319,7 @@ export class ThemeService {
     try {
       await this.dynamoClient.send(new UpdateCommand({
         TableName: this.config.tableName,
-        Key: { id },
+        Key: { themeId: id },
         UpdateExpression: 'SET isActive = :inactive, updatedAt = :updatedAt',
         ExpressionAttributeValues: {
           ':inactive': false,
