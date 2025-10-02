@@ -1,0 +1,28 @@
+# Frontend Dockerfile for development
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/frontend/package*.json ./packages/frontend/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY packages/frontend ./packages/frontend
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+COPY .eslintrc.json ./
+COPY .prettierrc ./
+
+# Build shared package
+RUN npm run build --workspace=shared
+
+WORKDIR /app/packages/frontend
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

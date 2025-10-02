@@ -1,0 +1,141 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Long-running endurance test (2 hours)
+    - duration: 300
+      arrivalRate: 1
+      rampTo: 10
+      name: "Warm-up"
+    
+    # Sustained moderate load for extended period
+    - duration: 6000 # 100 minutes
+      arrivalRate: 10
+      name: "Endurance phase"
+    
+    # Gradual cool-down
+    - duration: 300
+      arrivalRate: 10
+      rampTo: 1
+      name: "Cool-down"
+
+  variables:
+    testDuration: 7200000 # 2 hours in milliseconds
+    
+scenarios:
+  - name: "Realistic User Behavior"
+    weight: 60
+    flow:
+      # Simulate realistic user session
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.themes[0].id"
+              as: "selectedTheme"
+      
+      # Think time - user browses themes
+      - think: "{{ $randomInt(5000, 15000) }}"
+      
+      # Upload image
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "endurance-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+            fileSize: "{{ $randomInt(2000000, 6000000) }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.key"
+              as: "imageKey"
+      
+      # Think time - user reviews upload
+      - think: "{{ $randomInt(2000, 8000) }}"
+      
+      # Start processing
+      - post:
+          url: "/api/process"
+          json:
+            imageKey: "{{ imageKey }}"
+            themeId: "{{ selectedTheme }}"
+            outputFormat: "jpeg"
+          expect:
+            - statusCode: [200, 202]
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
+      
+      # Realistic status checking pattern
+      - loop:
+          - think: "{{ $randomInt(3000, 8000) }}" # User waits before checking
+          - get:
+              url: "/api/process/{{ jobId }}"
+              expect:
+                - statusCode: 200
+              capture:
+                - json: "$.status"
+                  as: "jobStatus"
+          - ifTrue: "jobStatus === 'completed' || jobStatus === 'failed'"
+            then:
+              - log: "Job {{ jobId }} finished with status {{ jobStatus }}"
+          count: 10
+      
+      # User session end - think time before next session
+      - think: "{{ $randomInt(30000, 120000) }}"
+
+  - name: "Background Health Monitoring"
+    weight: 20
+    flow:
+      - loop:
+          - get:
+              url: "/api/health"
+              expect:
+                - statusCode: 200
+          - get:
+              url: "/api/health/detailed"
+              expect:
+                - statusCode: 200
+          - think: 30000 # Check every 30 seconds
+          count: 240 # For 2 hours
+
+  - name: "Periodic Theme Updates"
+    weight: 10
+    flow:
+      # Simulate periodic theme catalog refreshes
+      - loop:
+          - get:
+              url: "/api/themes"
+              expect:
+                - statusCode: 200
+          - think: "{{ $randomInt(300000, 600000) }}" # Every 5-10 minutes
+          count: 24 # For 2 hours
+
+  - name: "Memory Leak Detection"
+    weight: 10
+    flow:
+      # Patterns that might cause memory leaks
+      - loop:
+          - post:
+              url: "/api/upload/presigned"
+              json:
+                fileName: "leak-test-{{ $randomString() }}.jpg"
+                fileType: "image/jpeg"
+                fileSize: 5000000
+              expect:
+                - statusCode: 200
+          
+          # Don't follow through with processing - simulate abandoned uploads
+          - think: 1000
+          count: 3600 # Many abandoned requests over time
+
+plugins:
+  expect: {}
+  metrics-by-endpoint: {}
+  
+# Memory and performance monitoring
+reporting:
+  - type: json
+    output: "./endurance-test-results.json"
+  - type: html
+    output: "./endurance-test-report.html"

@@ -1,0 +1,104 @@
+# Artillery.js Load Test Configuration for AI Photobooth Backend
+# This test validates the application can handle expected load during deployment
+
+config:
+  target: "{{ $processEnvironment.TARGET_URL || 'http://localhost:3000' }}"
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 1
+      name: "Warm-up"
+    
+    # Ramp-up phase
+    - duration: 60
+      arrivalRate: 2
+      rampTo: 10
+      name: "Ramp-up"
+    
+    # Sustained load phase
+    - duration: 120
+      arrivalRate: 10
+      name: "Sustained load"
+    
+    # Peak load phase
+    - duration: 60
+      arrivalRate: 20
+      name: "Peak load"
+    
+    # Cool-down phase
+    - duration: 30
+      arrivalRate: 5
+      name: "Cool-down"
+
+  # Performance thresholds
+  ensure:
+    # 95% of requests should complete within 2 seconds
+    p95: 2000
+    # 99% of requests should complete within 5 seconds
+    p99: 5000
+    # Error rate should be less than 1%
+    maxErrorRate: 1
+
+  # HTTP configuration
+  http:
+    timeout: 10
+    pool: 10
+
+  # Plugins for enhanced reporting
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+# Test scenarios
+scenarios:
+  # Health check scenario (most frequent)
+  - name: "Health Check"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+
+  # Themes API scenario
+  - name: "Get Themes"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.length"
+              as: "themeCount"
+
+  # Pre-signed URL generation scenario
+  - name: "Generate Upload URL"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "test-image.jpg"
+            fileType: "image/jpeg"
+            fileSize: 1048576
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.uploadUrl"
+              as: "uploadUrl"
+
+  # Processing status check scenario
+  - name: "Check Processing Status"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/process/{{ $randomString() }}"
+          expect:
+            - statusCode: [200, 404]
+
+# Custom functions for test data generation
+processor: "./load-test-processor.js"

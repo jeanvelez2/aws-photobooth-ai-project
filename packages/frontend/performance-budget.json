@@ -1,0 +1,75 @@
+{
+  "budgets": [
+    {
+      "type": "bundle",
+      "name": "main",
+      "maximumWarning": "1mb",
+      "maximumError": "1.5mb"
+    },
+    {
+      "type": "bundle",
+      "name": "vendor",
+      "maximumWarning": "500kb",
+      "maximumError": "750kb"
+    },
+    {
+      "type": "initial",
+      "maximumWarning": "1.5mb",
+      "maximumError": "2mb"
+    },
+    {
+      "type": "anyComponentStyle",
+      "maximumWarning": "200kb",
+      "maximumError": "300kb"
+    },
+    {
+      "type": "any",
+      "maximumWarning": "2mb",
+      "maximumError": "3mb"
+    }
+  ],
+  "performance": {
+    "fcp": {
+      "budget": 1800,
+      "warning": 1500,
+      "description": "First Contentful Paint should be under 1.8s"
+    },
+    "lcp": {
+      "budget": 2500,
+      "warning": 2000,
+      "description": "Largest Contentful Paint should be under 2.5s"
+    },
+    "fid": {
+      "budget": 100,
+      "warning": 75,
+      "description": "First Input Delay should be under 100ms"
+    },
+    "cls": {
+      "budget": 0.1,
+      "warning": 0.05,
+      "description": "Cumulative Layout Shift should be under 0.1"
+    },
+    "ttfb": {
+      "budget": 600,
+      "warning": 400,
+      "description": "Time to First Byte should be under 600ms"
+    }
+  },
+  "custom": {
+    "processingTime": {
+      "budget": 8000,
+      "warning": 6000,
+      "description": "Image processing should complete within 8 seconds"
+    },
+    "uploadTime": {
+      "budget": 5000,
+      "warning": 3000,
+      "description": "Image upload should complete within 5 seconds"
+    },
+    "cameraInitTime": {
+      "budget": 2000,
+      "warning": 1500,
+      "description": "Camera initialization should complete within 2 seconds"
+    }
+  }
+}

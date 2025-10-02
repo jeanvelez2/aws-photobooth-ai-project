@@ -1,0 +1,101 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Auto-scaling validation test
+    - duration: 60
+      arrivalRate: 5
+      name: "Baseline load"
+    
+    # Trigger scale-out
+    - duration: 180
+      arrivalRate: 5
+      rampTo: 30
+      name: "Scale-out trigger"
+    
+    # Sustained high load
+    - duration: 300
+      arrivalRate: 30
+      name: "Sustained high load"
+    
+    # Scale-in trigger
+    - duration: 180
+      arrivalRate: 30
+      rampTo: 5
+      name: "Scale-in trigger"
+    
+    # Verify scale-in
+    - duration: 120
+      arrivalRate: 5
+      name: "Scale-in verification"
+
+  variables:
+    processingTimeout: 15000
+    
+scenarios:
+  - name: "CPU Intensive Processing"
+    weight: 60
+    flow:
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "cpu-test-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+            fileSize: "{{ $randomInt(2000000, 8000000) }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.key"
+              as: "imageKey"
+      
+      - post:
+          url: "/api/process"
+          json:
+            imageKey: "{{ imageKey }}"
+            themeId: "{{ $randomString(['barbarian', 'greek', 'mystic', 'anime']) }}"
+            outputFormat: "{{ $randomString(['jpeg', 'png']) }}"
+          expect:
+            - statusCode: [200, 202, 503]
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
+      
+      # Monitor processing with timeout
+      - loop:
+          - get:
+              url: "/api/process/{{ jobId }}"
+              expect:
+                - statusCode: [200, 404]
+          - think: 3000
+          count: 5
+
+  - name: "Memory Intensive Operations"
+    weight: 25
+    flow:
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+      
+      - get:
+          url: "/api/performance"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.performance.memoryUsage.heapUsed"
+              as: "memoryUsage"
+
+  - name: "Connection Pool Stress"
+    weight: 15
+    flow:
+      - loop:
+          - get:
+              url: "/api/health"
+              expect:
+                - statusCode: 200
+          - think: 100
+          count: 10
+
+plugins:
+  expect: {}
+  metrics-by-endpoint:
+    useOnlyRequestNames: true

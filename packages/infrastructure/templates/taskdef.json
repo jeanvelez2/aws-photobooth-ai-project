@@ -1,0 +1,128 @@
+{
+  "family": "ai-photobooth-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "<EXECUTION_ROLE_ARN>",
+  "taskRoleArn": "<TASK_ROLE_ARN>",
+  "containerDefinitions": [
+    {
+      "name": "backend-container",
+      "image": "<IMAGE1_NAME>",
+      "essential": true,
+      "memoryReservation": 3584,
+      "cpu": 1792,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "<AWS_REGION>"
+        },
+        {
+          "name": "S3_BUCKET_NAME",
+          "value": "<S3_BUCKET_NAME>"
+        },
+        {
+          "name": "PROCESSING_JOBS_TABLE",
+          "value": "<PROCESSING_JOBS_TABLE>"
+        },
+        {
+          "name": "THEMES_TABLE",
+          "value": "<THEMES_TABLE>"
+        },
+        {
+          "name": "ENABLE_XRAY",
+          "value": "<ENABLE_XRAY>"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_PASSWORD",
+          "valueFrom": "/ai-photobooth/<ENVIRONMENT>/database-credentials:password"
+        },
+        {
+          "name": "EXTERNAL_API_KEY",
+          "valueFrom": "/ai-photobooth/<ENVIRONMENT>/external-api-keys:secretKey"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/photobooth-processing-<ENVIRONMENT>",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "dockerLabels": {
+        "application": "ai-photobooth",
+        "environment": "<ENVIRONMENT>",
+        "component": "backend"
+      }
+    },
+    {
+      "name": "xray-daemon",
+      "image": "public.ecr.aws/xray/aws-xray-daemon:latest",
+      "essential": false,
+      "memoryReservation": 256,
+      "cpu": 256,
+      "portMappings": [
+        {
+          "containerPort": 2000,
+          "protocol": "udp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "<AWS_REGION>"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/photobooth-xray-<ENVIRONMENT>",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "xray"
+        }
+      }
+    }
+  ],
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "X86_64"
+  },
+  "tags": [
+    {
+      "key": "Project",
+      "value": "AI-Photobooth"
+    },
+    {
+      "key": "Environment",
+      "value": "<ENVIRONMENT>"
+    },
+    {
+      "key": "ManagedBy",
+      "value": "CodeDeploy"
+    }
+  ]
+}

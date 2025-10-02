@@ -1,0 +1,153 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 1
+      name: "Warm-up"
+    
+    # Gradual ramp-up
+    - duration: 120
+      arrivalRate: 1
+      rampTo: 10
+      name: "Ramp-up"
+    
+    # Sustained load
+    - duration: 300
+      arrivalRate: 10
+      name: "Sustained load"
+    
+    # Peak load test
+    - duration: 120
+      arrivalRate: 10
+      rampTo: 25
+      name: "Peak load"
+    
+    # Spike test
+    - duration: 60
+      arrivalRate: 50
+      name: "Spike test"
+    
+    # Cool down
+    - duration: 60
+      arrivalRate: 25
+      rampTo: 1
+      name: "Cool down"
+
+  payload:
+    path: "./test-data.csv"
+    fields:
+      - "imageUrl"
+      - "themeId"
+      - "outputFormat"
+
+  variables:
+    baseUrl: "http://localhost:3000"
+    
+scenarios:
+  - name: "Health Check Load Test"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+
+  - name: "Theme Retrieval Load Test"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.themes"
+              as: "themes"
+
+  - name: "Upload Presigned URL Load Test"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "test-image-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+            fileSize: "{{ $randomInt(100000, 5000000) }}"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.uploadUrl"
+              as: "uploadUrl"
+            - json: "$.key"
+              as: "imageKey"
+
+  - name: "Processing Status Check Load Test"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/process/{{ $randomString() }}"
+          expect:
+            - statusCode: [200, 404]
+
+  - name: "Performance Stats Load Test"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/performance"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.performance.activeOperations"
+              as: "activeOps"
+
+  - name: "Complete Processing Workflow"
+    weight: 5
+    flow:
+      # Step 1: Get presigned URL
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "workflow-test-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+            fileSize: 2048000
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.key"
+              as: "imageKey"
+      
+      # Step 2: Simulate processing request
+      - post:
+          url: "/api/process"
+          json:
+            imageKey: "{{ imageKey }}"
+            themeId: "barbarian"
+            outputFormat: "jpeg"
+          expect:
+            - statusCode: [200, 202]
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
+      
+      # Step 3: Check processing status
+      - loop:
+          - get:
+              url: "/api/process/{{ jobId }}"
+              expect:
+                - statusCode: 200
+        count: 3
+        delay: 2000
+
+plugins:
+  expect: {}
+  metrics-by-endpoint: {}
+  
+# Custom metrics and reporting
+reporting:
+  - type: json
+    output: "./load-test-results.json"
+  - type: html
+    output: "./load-test-report.html"

@@ -1,0 +1,36 @@
+{
+  "name": "@ai-photobooth/infrastructure",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for AI Photobooth",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "ts-node test/compilation.test.ts",
+    "test:jest": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "cdk": "cdk",
+    "deploy": "cdk deploy",
+    "deploy:cicd": "cdk deploy PhotoboothCicd-dev",
+    "destroy": "cdk destroy",
+    "diff": "cdk diff",
+    "synth": "cdk synth",
+    "validate-deployment": "node scripts/validate-deployment.js",
+    "make-scripts-executable": "chmod +x scripts/*.sh"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.0",
+    "aws-cdk": "^2.175.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.2.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.175.0",
+    "aws-sdk": "^2.1692.0",
+    "constructs": "^10.4.0"
+  }
+}

@@ -1,0 +1,136 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Stress test to find breaking point
+    - duration: 60
+      arrivalRate: 1
+      name: "Baseline"
+    
+    # Gradual increase to stress system
+    - duration: 300
+      arrivalRate: 1
+      rampTo: 50
+      name: "Stress ramp-up"
+    
+    # High sustained load
+    - duration: 600
+      arrivalRate: 50
+      name: "Sustained stress"
+    
+    # Peak stress test
+    - duration: 180
+      arrivalRate: 50
+      rampTo: 100
+      name: "Peak stress"
+    
+    # Breaking point test
+    - duration: 120
+      arrivalRate: 100
+      rampTo: 200
+      name: "Breaking point"
+    
+    # Recovery test
+    - duration: 300
+      arrivalRate: 200
+      rampTo: 10
+      name: "Recovery"
+
+  variables:
+    maxProcessingTime: 30000
+    
+scenarios:
+  - name: "Heavy Processing Load"
+    weight: 40
+    flow:
+      # Generate large image processing requests
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            fileName: "stress-test-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+            fileSize: "{{ $randomInt(8000000, 10000000) }}" # 8-10MB files
+          expect:
+            - statusCode: [200, 429, 503]
+          capture:
+            - json: "$.key"
+              as: "imageKey"
+      
+      - post:
+          url: "/api/process"
+          json:
+            imageKey: "{{ imageKey }}"
+            themeId: "{{ $randomString(['barbarian', 'greek', 'mystic', 'anime']) }}"
+            outputFormat: "{{ $randomString(['jpeg', 'png']) }}"
+          expect:
+            - statusCode: [200, 202, 429, 503]
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
+      
+      # Aggressive status polling
+      - loop:
+          - get:
+              url: "/api/process/{{ jobId }}"
+              expect:
+                - statusCode: [200, 404, 429, 503]
+          - think: 500 # Poll every 500ms
+          count: 60 # Up to 30 seconds
+
+  - name: "Database Stress"
+    weight: 25
+    flow:
+      # Rapid theme requests to stress database
+      - loop:
+          - get:
+              url: "/api/themes"
+              expect:
+                - statusCode: [200, 429, 503]
+          - get:
+              url: "/api/themes/{{ $randomString(['barbarian', 'greek', 'mystic', 'anime']) }}"
+              expect:
+                - statusCode: [200, 404, 429, 503]
+          - think: 100
+          count: 20
+
+  - name: "Memory Pressure"
+    weight: 20
+    flow:
+      # Multiple concurrent large uploads
+      - loop:
+          - post:
+              url: "/api/upload/presigned"
+              json:
+                fileName: "memory-test-{{ $randomString() }}-{{ $randomInt(1, 1000) }}.jpg"
+                fileType: "image/jpeg"
+                fileSize: "{{ $randomInt(9000000, 10000000) }}"
+              expect:
+                - statusCode: [200, 413, 429, 503]
+          - think: 50
+          count: 5
+
+  - name: "Connection Pool Exhaustion"
+    weight: 15
+    flow:
+      # Rapid-fire requests to exhaust connection pools
+      - loop:
+          - get:
+              url: "/api/health"
+              expect:
+                - statusCode: [200, 429, 503]
+          - get:
+              url: "/api/performance"
+              expect:
+                - statusCode: [200, 429, 503]
+          count: 50
+
+plugins:
+  expect: {}
+  metrics-by-endpoint:
+    useOnlyRequestNames: true
+  
+# Enhanced reporting for stress testing
+reporting:
+  - type: json
+    output: "./stress-test-results.json"
+  - type: html
+    output: "./stress-test-report.html"

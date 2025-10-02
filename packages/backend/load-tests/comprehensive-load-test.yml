@@ -1,0 +1,154 @@
+# Comprehensive Load Testing Configuration
+# Tests various scenarios including normal load, stress testing, and endurance testing
+
+config:
+  target: 'http://localhost:3001'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 1
+      name: "Warm-up"
+    
+    # Normal load testing
+    - duration: 300
+      arrivalRate: 10
+      name: "Normal Load"
+    
+    # Ramp-up testing
+    - duration: 180
+      arrivalRate: 1
+      rampTo: 50
+      name: "Ramp-up"
+    
+    # Peak load testing
+    - duration: 120
+      arrivalRate: 50
+      name: "Peak Load"
+    
+    # Stress testing
+    - duration: 60
+      arrivalRate: 100
+      name: "Stress Test"
+    
+    # Cool-down
+    - duration: 60
+      arrivalRate: 5
+      name: "Cool-down"
+
+  processor: "./load-test-processor.js"
+  
+  # Performance thresholds
+  ensure:
+    # Response time thresholds
+    - http.response_time.p95: 5000  # 95th percentile under 5 seconds
+    - http.response_time.p99: 15000 # 99th percentile under 15 seconds
+    
+    # Error rate thresholds
+    - http.request_rate: 1000       # At least 1000 requests total
+    - http.codes.200: 0.95          # 95% success rate minimum
+    - http.codes.500: 0.02          # Less than 2% server errors
+
+  # Payload configuration
+  payload:
+    path: "./test-data.csv"
+    fields:
+      - "imageUrl"
+      - "themeId"
+      - "outputFormat"
+
+scenarios:
+  # Health check scenario (lightweight)
+  - name: "Health Check"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+            - hasProperty: "status"
+            - hasProperty: "timestamp"
+
+  # Theme browsing scenario
+  - name: "Browse Themes"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+      - think: 2
+      - get:
+          url: "/api/themes/{{ $randomString() }}"
+          expect:
+            - statusCode: [200, 404]
+
+  # Image upload scenario
+  - name: "Image Upload"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/upload/presigned"
+          json:
+            filename: "test-image-{{ $randomString() }}.jpg"
+            contentType: "image/jpeg"
+          expect:
+            - statusCode: 200
+            - hasProperty: "uploadUrl"
+            - hasProperty: "key"
+      - think: 1
+
+  # Processing workflow scenario
+  - name: "Processing Workflow"
+    weight: 20
+    flow:
+      # Start processing
+      - post:
+          url: "/api/process"
+          json:
+            imageKey: "uploads/test/{{ $randomString() }}.jpg"
+            themeId: "{{ themeId }}"
+            outputFormat: "{{ outputFormat }}"
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
+          expect:
+            - statusCode: 200
+            - hasProperty: "jobId"
+      
+      # Check status multiple times
+      - loop:
+          - get:
+              url: "/api/process/{{ jobId }}"
+              expect:
+                - statusCode: 200
+                - hasProperty: "status"
+          - think: 2
+        count: 5
+
+  # Error handling scenario
+  - name: "Error Handling"
+    weight: 5
+    flow:
+      # Test invalid endpoints
+      - get:
+          url: "/api/nonexistent"
+          expect:
+            - statusCode: 404
+      
+      # Test invalid data
+      - post:
+          url: "/api/process"
+          json:
+            invalidField: "invalid"
+          expect:
+            - statusCode: 400
+
+# Custom metrics and monitoring
+metrics:
+  - name: "processing_time"
+    unit: "milliseconds"
+  - name: "queue_depth"
+    unit: "count"
+  - name: "error_rate"
+    unit: "percentage"
