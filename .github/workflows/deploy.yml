@@ -235,7 +235,13 @@ jobs:
         
         if [ -d "frontend/dist" ] && [ "$(ls -A frontend/dist)" ]; then
           echo "Deploying frontend build to S3..."
-          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete --content-type-by-extension
+          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete
+          
+          # Set correct content types for specific file types
+          aws s3 cp s3://$BUCKET_NAME/ s3://$BUCKET_NAME/ --recursive --metadata-directive REPLACE --content-type "text/html" --exclude "*" --include "*.html"
+          aws s3 cp s3://$BUCKET_NAME/ s3://$BUCKET_NAME/ --recursive --metadata-directive REPLACE --content-type "application/javascript" --exclude "*" --include "*.js"
+          aws s3 cp s3://$BUCKET_NAME/ s3://$BUCKET_NAME/ --recursive --metadata-directive REPLACE --content-type "text/css" --exclude "*" --include "*.css"
+          
           echo "Frontend deployed successfully"
         else
           echo "ERROR: Frontend dist directory not found or empty!"
