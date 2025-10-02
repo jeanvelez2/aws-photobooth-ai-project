@@ -298,7 +298,6 @@ export class GracefulDegradationService {
         }
         
         const reader = new FileReader();
-        const reader = new FileReader();
         return new Promise((resolve, reject) => {
           reader.onload = () => {
             try {

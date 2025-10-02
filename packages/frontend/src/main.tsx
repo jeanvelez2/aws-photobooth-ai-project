@@ -1,9 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import ErrorBoundary from './components/ErrorBoundary.tsx';
-import { registerServiceWorker } from './utils/serviceWorker.ts';
-import { performanceMonitor } from './utils/performanceMonitor.ts';
+import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
+import { registerServiceWorker } from './utils/serviceWorker';
+import { performanceMonitor } from './utils/performanceMonitor';
 import './index.css';
 
 // Initialize performance monitoring
