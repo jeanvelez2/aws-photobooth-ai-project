@@ -14,9 +14,6 @@ export default function ThemeSelectionPage() {
   // Fetch themes from API
   const { data: themesData = [], isLoading: themesLoading, error: themesError } = useThemes();
   const themes = themesData as Theme[];
-  
-  // Fetch themes from API
-  const { data: themes = [], isLoading, error } = useThemes();
 
   React.useEffect(() => {
     // Set current step when component mounts
