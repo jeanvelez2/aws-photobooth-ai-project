@@ -525,29 +525,12 @@ export class PhotoboothStack extends cdk.Stack {
   }
 
   private createCloudFrontDistribution(): cloudfront.Distribution {
-    // Create Origin Access Control for S3
-    const originAccessControl = new cloudfront.OriginAccessControl(this, 'S3OriginAccessControl', {
-      description: 'Origin Access Control for S3 bucket',
-    });
-
     // Create S3 origin for static website hosting
     const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(this.bucket, {
       originPath: '/static',
-      originAccessControl,
     });
 
-    // Add bucket policy to allow CloudFront access
-    this.bucket.addToResourcePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
-      actions: ['s3:GetObject'],
-      resources: [this.bucket.arnForObjects('*')],
-      conditions: {
-        StringEquals: {
-          'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/*`,
-        },
-      },
-    }));
+
 
     // Create ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(this.loadBalancer.loadBalancerDnsName, {
