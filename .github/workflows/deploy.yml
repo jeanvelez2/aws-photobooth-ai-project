@@ -322,12 +322,13 @@ jobs:
           --distribution-id $DISTRIBUTION_ID \
           --paths "/*"
     
-    - name: Force ECS service update
+    - name: Update ECS service with new image and ensure capacity
       run: |
-        echo "Forcing ECS service update to use new container image..."
+        echo "Ensuring ECS service has sufficient capacity..."
         aws ecs update-service \
           --cluster photobooth-cluster-dev \
           --service photobooth-processing-dev \
+          --desired-count 2 \
           --force-new-deployment \
           --region ${{ env.AWS_REGION }}
         
@@ -335,31 +336,38 @@ jobs:
         aws ecs wait services-stable \
           --cluster photobooth-cluster-dev \
           --services photobooth-processing-dev \
-          --region ${{ env.AWS_REGION }}
+          --region ${{ env.AWS_REGION }} \
+          --cli-read-timeout 600 \
+          --cli-connect-timeout 60
         
-        echo "Stopping old tasks to force new deployment..."
+        echo "Checking service status..."
+        aws ecs describe-services \
+          --cluster photobooth-cluster-dev \
+          --services photobooth-processing-dev \
+          --region ${{ env.AWS_REGION }} \
+          --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}'
+        
+        echo "Checking task health..."
         TASK_ARNS=$(aws ecs list-tasks \
           --cluster photobooth-cluster-dev \
           --service-name photobooth-processing-dev \
+          --desired-status RUNNING \
           --query 'taskArns' \
           --output text \
           --region ${{ env.AWS_REGION }})
         
         if [ ! -z "$TASK_ARNS" ]; then
           for TASK_ARN in $TASK_ARNS; do
-            echo "Stopping task: $TASK_ARN"
-            aws ecs stop-task \
+            echo "Task status for $TASK_ARN:"
+            aws ecs describe-tasks \
               --cluster photobooth-cluster-dev \
-              --task $TASK_ARN \
-              --region ${{ env.AWS_REGION }}
+              --tasks $TASK_ARN \
+              --region ${{ env.AWS_REGION }} \
+              --query 'tasks[0].{LastStatus:lastStatus,HealthStatus:healthStatus,CreatedAt:createdAt}'
           done
-          
-          echo "Waiting for new tasks to start..."
-          sleep 30
-          aws ecs wait services-stable \
-            --cluster photobooth-cluster-dev \
-            --services photobooth-processing-dev \
-            --region ${{ env.AWS_REGION }}
+        else
+          echo "No running tasks found!"
+          exit 1
         fi
     
     - name: Seed themes and upload placeholder images

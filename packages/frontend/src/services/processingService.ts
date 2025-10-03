@@ -43,6 +43,7 @@ export class ProcessingService {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(request),
+            signal: options.signal,
           });
 
           if (!response.ok) {
@@ -69,7 +70,7 @@ export class ProcessingService {
                 errorType = ProcessingErrorType.INTERNAL_ERROR;
             }
 
-            const error = errorService.createError(errorType, new Error(errorData.message), {
+            const error = errorService.createError(errorType, new Error(errorData.message || `HTTP ${response.status}`), {
               component: 'ProcessingService',
               action: 'startProcessing',
               httpStatus: response.status,
@@ -79,15 +80,48 @@ export class ProcessingService {
             throw error;
           }
 
-          return response.json();
+          const result = await response.json();
+          
+          // Validate response has required fields
+          if (!result.id) {
+            throw new Error('Invalid response: missing job ID');
+          }
+          
+          return result;
         },
         enableFallback ? async () => {
-          // Fallback to basic client-side processing
+          // Fallback to queuing for later processing
           const fallbacks = gracefulDegradationService.getProcessingFallbacks();
-          return fallbacks.queueForLater(request);
+          const queueResult = await fallbacks.queueForLater(request);
+          
+          // Return a mock processing result for queued items
+          return {
+            id: `queued_${Date.now()}`,
+            status: 'queued' as const,
+            progress: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            request,
+            message: 'Your image has been queued for processing. Please try again later.',
+            queuePosition: queueResult.position || 1,
+          };
         } : undefined
       );
     } catch (error) {
+      // Handle network errors specifically
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        const networkError = errorService.createError(
+          ProcessingErrorType.SERVICE_UNAVAILABLE,
+          new Error(`Backend service is unavailable. Please try again later. (${error.message})`),
+          {
+            component: 'ProcessingService',
+            action: 'startProcessing',
+          }
+        );
+        onError?.(networkError);
+        throw networkError;
+      }
+      
       const processedError = errorService.parseError(error, {
         component: 'ProcessingService',
         action: 'startProcessing',
@@ -103,8 +137,25 @@ export class ProcessingService {
   async getProcessingStatus(id: string, options: ProcessingOptions = {}): Promise<ProcessingResult> {
     const { onError } = options;
 
+    // Validate job ID
+    if (!id || id === 'undefined') {
+      const error = errorService.createError(
+        ProcessingErrorType.INTERNAL_ERROR,
+        new Error('Invalid job ID provided'),
+        {
+          component: 'ProcessingService',
+          action: 'getProcessingStatus',
+          jobId: id,
+        }
+      );
+      onError?.(error);
+      throw error;
+    }
+
     try {
-      const response = await fetch(`${this.API_BASE_URL}/process/${id}`);
+      const response = await fetch(`${this.API_BASE_URL}/process/${id}`, {
+        signal: options.signal,
+      });
 
       if (!response.ok) {
         const errorType = response.status === 404 
@@ -124,6 +175,21 @@ export class ProcessingService {
 
       return response.json();
     } catch (error) {
+      // Handle network errors specifically
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        const networkError = errorService.createError(
+          ProcessingErrorType.SERVICE_UNAVAILABLE,
+          new Error(`Backend service is unavailable. Please try again later. (${error.message})`),
+          {
+            component: 'ProcessingService',
+            action: 'getProcessingStatus',
+            jobId: id,
+          }
+        );
+        onError?.(networkError);
+        throw networkError;
+      }
+      
       const processedError = errorService.parseError(error, {
         component: 'ProcessingService',
         action: 'getProcessingStatus',
