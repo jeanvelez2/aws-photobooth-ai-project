@@ -42,7 +42,7 @@ jobs:
       run: |
         npm ci --silent
         cd packages/infrastructure
-        npm ci --silent
+        npm install --silent
     
     - name: Install AWS CDK
       run: npm install -g aws-cdk@latest
@@ -257,7 +257,7 @@ jobs:
       run: |
         npm ci --silent
         cd packages/infrastructure
-        npm ci --silent
+        npm install --silent
     
     - name: Install AWS CDK
       run: npm install -g aws-cdk@latest
