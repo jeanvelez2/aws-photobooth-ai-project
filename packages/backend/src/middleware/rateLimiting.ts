@@ -23,6 +23,14 @@ export const createRateLimiter = (config: RateLimitConfig) => {
     return (req: Request, res: Response, next: Function) => next();
   }
 
+  // Whitelist of IPs that bypass rate limiting (load balancers, monitoring, etc.)
+  const whitelistedIPs = new Set([
+    '127.0.0.1',
+    '::1',
+    // Add your load balancer IPs here
+    // '10.0.0.0/8', // Private networks (would need CIDR parsing)
+  ]);
+
   return rateLimit({
     windowMs: config.windowMs,
     max: config.max,
@@ -37,6 +45,10 @@ export const createRateLimiter = (config: RateLimitConfig) => {
     skipSuccessfulRequests: config.skipSuccessfulRequests || false,
     skipFailedRequests: config.skipFailedRequests || false,
     keyGenerator: config.keyGenerator || ((req: Request) => req.ip || 'unknown'),
+    skip: (req: Request) => {
+      const ip = req.ip || '';
+      return whitelistedIPs.has(ip);
+    },
     handler: (req: Request, res: Response) => {
       const requestId = req.headers['x-request-id'] as string;
       
@@ -74,20 +86,20 @@ export const createRateLimiter = (config: RateLimitConfig) => {
 };
 
 /**
- * General API rate limiter (10 requests per minute per IP)
+ * General API rate limiter (environment-based limits)
  */
 export const generalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute per IP
+  max: process.env.NODE_ENV === 'production' ? 50 : 30, // Higher limit in production
   message: 'Too many requests from this IP, please try again later.',
 });
 
 /**
- * Strict rate limiter for processing endpoints (3 requests per minute per IP)
+ * Strict rate limiter for processing endpoints (environment-based limits)
  */
 export const processingRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 3, // 3 processing requests per minute per IP
+  max: process.env.NODE_ENV === 'production' ? 20 : 10, // Higher limit in production
   message: 'Too many processing requests from this IP, please wait before submitting another.',
   skipSuccessfulRequests: false,
   skipFailedRequests: true, // Don't count failed requests against limit
