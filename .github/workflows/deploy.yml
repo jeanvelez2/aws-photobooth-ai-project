@@ -435,6 +435,21 @@ jobs:
           --retry 3 \
           --retry-delay 10 || echo "CloudFront theme seeding failed"
     
+    - name: Ensure ECS service is running
+      run: |
+        echo "Scaling ECS service to ensure it's running..."
+        aws ecs update-service \
+          --cluster photobooth-cluster-dev \
+          --service photobooth-processing-dev \
+          --desired-count 1 \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "Waiting for service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster photobooth-cluster-dev \
+          --services photobooth-processing-dev \
+          --region ${{ env.AWS_REGION }}
+    
     - name: Run post-deployment validation
       run: |
         ALB_URL=$(aws cloudformation describe-stacks \
