@@ -391,20 +391,8 @@ export class GracefulDegradationService {
    * Start health checking for a service
    */
   private startHealthCheck(serviceName: string): void {
-    if (this.checkIntervals.has(serviceName)) {
-      return; // Already checking
-    }
-
-    const interval = setInterval(async () => {
-      try {
-        await this.checkServiceHealth(serviceName);
-        this.markServiceRecovered(serviceName);
-      } catch (error) {
-        // Service still failing, continue checking
-      }
-    }, this.config.checkInterval);
-
-    this.checkIntervals.set(serviceName, interval);
+    // Disable health checking to prevent infinite requests
+    return;
   }
 
   /**
