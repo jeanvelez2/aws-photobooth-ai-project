@@ -208,6 +208,22 @@ export class ProcessingService {
     options: ProcessingOptions = {}
   ): Promise<ProcessingResult> {
     const { onProgress, onStatusChange, onError, signal } = options;
+    
+    // Don't poll for queued jobs - they're fallback responses
+    if (id.startsWith('queued_')) {
+      const error = errorService.createError(
+        ProcessingErrorType.SERVICE_UNAVAILABLE,
+        new Error('Service is currently unavailable. Your request has been queued.'),
+        {
+          component: 'ProcessingService',
+          action: 'pollProcessingStatus',
+          jobId: id,
+        }
+      );
+      onError?.(error);
+      throw error;
+    }
+    
     const startTime = Date.now();
     let consecutiveErrors = 0;
     const maxConsecutiveErrors = 3;
@@ -325,8 +341,6 @@ export class ProcessingService {
         return 0;
     }
   }
-
-
 
   /**
    * Retry processing with the same parameters and enhanced error handling
