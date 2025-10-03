@@ -38,11 +38,20 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         role-session-name: GitHubActions-ECRDeploy
     
+    - name: Debug npm setup
+      run: |
+        echo "Node: $(node --version)"
+        echo "NPM: $(npm --version)"
+        echo "PWD: $(pwd)"
+        ls -la
+        echo "package.json: $(test -f package.json && echo 'yes' || echo 'no')"
+        echo "package-lock.json: $(test -f package-lock.json && echo 'yes' || echo 'no')"
+        
     - name: Install dependencies
       run: |
-        npm ci --silent
+        npm ci --verbose
         cd packages/infrastructure
-        npm install --silent
+        npm install --verbose
     
     - name: Install AWS CDK
       run: npm install -g aws-cdk@latest
