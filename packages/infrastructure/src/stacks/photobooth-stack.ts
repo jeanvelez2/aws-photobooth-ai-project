@@ -58,7 +58,10 @@ export class PhotoboothStack extends cdk.Stack {
     this.loadBalancer = loadBalancer;
     this.targetGroup = targetGroup;
 
-    // Create Secrets Manager secret with app configuration (before ECS service)
+    // Create CloudFront distribution
+    this.distribution = this.createCloudFrontDistribution();
+
+    // Create Secrets Manager secret with app configuration (after ALB and CloudFront)
     this.appConfigSecret = this.createAppConfigSecret();
 
     // Create ECS service
@@ -68,9 +71,6 @@ export class PhotoboothStack extends cdk.Stack {
     if (this.environmentConfig.enableXRay) {
       this.createXRayTracing();
     }
-
-    // Create CloudFront distribution
-    this.distribution = this.createCloudFrontDistribution();
 
     // Output important values
     this.createOutputs();
