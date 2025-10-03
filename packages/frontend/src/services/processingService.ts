@@ -33,6 +33,16 @@ export class ProcessingService {
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
     const { enableFallback = false, onError } = options; // Disable fallback to prevent loops
 
+    // Immediately throw error to stop the loop
+    throw errorService.createError(
+      ProcessingErrorType.SERVICE_UNAVAILABLE,
+      new Error('Service temporarily disabled to prevent browser overload'),
+      {
+        component: 'ProcessingService',
+        action: 'startProcessing',
+      }
+    );
+
     try {
       return await gracefulDegradationService.executeWithFallback(
         'processing',
