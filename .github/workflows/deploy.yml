@@ -86,9 +86,9 @@ jobs:
     
     - name: Install dependencies
       run: |
-        npm ci --silent
+        npm install
         cd packages/infrastructure
-        npm install --silent
+        npm install
     
     - name: Setup test environment
       run: |
@@ -267,9 +267,9 @@ jobs:
     
     - name: Install dependencies
       run: |
-        npm ci --silent
+        npm install
         cd packages/infrastructure
-        npm install --silent
+        npm install
     
     - name: Install AWS CDK
       run: npm install -g aws-cdk@latest
