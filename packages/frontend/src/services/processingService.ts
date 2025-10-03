@@ -31,12 +31,13 @@ export class ProcessingService {
    * Start image processing with error handling and fallback
    */
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
-    const { enableFallback = true, onError } = options;
+    const { enableFallback = false, onError } = options; // Disable fallback to prevent loops
 
     try {
       return await gracefulDegradationService.executeWithFallback(
         'processing',
         async () => {
+          console.log('Sending processing request:', request);
           const response = await fetch(`${this.API_BASE_URL}/process`, {
             method: 'POST',
             headers: {
@@ -45,6 +46,7 @@ export class ProcessingService {
             body: JSON.stringify(request),
             signal: options.signal,
           });
+          console.log('Response status:', response.status);
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
