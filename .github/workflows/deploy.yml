@@ -59,7 +59,7 @@ jobs:
     - name: Deploy ECR repositories only
       run: |
         cd packages/infrastructure
-        cdk deploy EcrStack-dev --context environment=dev --require-approval never --no-rollback --verbose
+        cdk deploy EcrStack-dev --context environment=dev --require-approval never --verbose
       env:
         CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
         CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -277,7 +277,7 @@ jobs:
     - name: Deploy full infrastructure
       run: |
         cd packages/infrastructure
-        cdk deploy PhotoboothStack-dev --context environment=dev --require-approval never --no-rollback --verbose
+        cdk deploy PhotoboothStack-dev --context environment=dev --require-approval never --verbose
       env:
         CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
         CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
