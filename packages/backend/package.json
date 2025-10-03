@@ -21,6 +21,7 @@
     "@aws-sdk/client-dynamodb": "^3.716.0",
     "@aws-sdk/client-rekognition": "^3.716.0",
     "@aws-sdk/client-s3": "^3.716.0",
+    "@aws-sdk/client-secretsmanager": "^3.716.0",
     "@aws-sdk/lib-dynamodb": "^3.716.0",
     "@aws-sdk/s3-request-presigner": "^3.716.0",
     "aws-xray-sdk-core": "^3.9.0",

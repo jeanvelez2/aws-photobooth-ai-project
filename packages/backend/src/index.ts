@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config/index.js';
 import { logger } from './utils/logger.js';
+import { configService } from './services/configService.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { correlationMiddleware } from './middleware/correlation.js';
@@ -68,15 +69,22 @@ app.use(secureCookies);
 // Request size limiting
 app.use(requestSizeLimiter(10 * 1024 * 1024)); // 10MB limit
 
-// Temporarily allow all origins for debugging
-app.use(
-  cors({
-    origin: true, // Allow all origins
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-  })
-);
+// Dynamic CORS configuration from Secrets Manager
+app.use(async (req, res, next) => {
+  try {
+    const frontendUrl = await configService.getFrontendUrl();
+    cors({
+      origin: [frontendUrl, 'http://localhost:3000'], // Allow frontend URL + local dev
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    })(req, res, next);
+  } catch (error) {
+    logger.error('Failed to get frontend URL for CORS', { error });
+    // Fallback to permissive CORS
+    cors({ origin: true, credentials: true })(req, res, next);
+  }
+});
 
 // Progressive rate limiting (checks for suspicious IPs first)
 app.use(progressiveRateLimiter);

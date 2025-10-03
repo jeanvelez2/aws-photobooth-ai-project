@@ -11,6 +11,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as xray from 'aws-cdk-lib/aws-xray';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config/environments';
@@ -28,7 +29,7 @@ export class PhotoboothStack extends cdk.Stack {
   public readonly distribution: cloudfront.Distribution;
   public readonly service: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
-
+  public readonly appConfigSecret: secretsmanager.Secret;
 
   private readonly environmentConfig: EnvironmentConfig;
 
@@ -67,6 +68,9 @@ export class PhotoboothStack extends cdk.Stack {
 
     // Create CloudFront distribution
     this.distribution = this.createCloudFrontDistribution();
+
+    // Create Secrets Manager secret with app configuration (after ALB and CloudFront)
+    this.appConfigSecret = this.createAppConfigSecret();
 
     // Output important values
     this.createOutputs();
@@ -346,6 +350,13 @@ export class PhotoboothStack extends cdk.Stack {
               ],
               resources: ['*'],
             }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'secretsmanager:GetSecretValue',
+              ],
+              resources: [this.appConfigSecret.secretArn],
+            }),
           ],
         }),
       },
@@ -391,6 +402,7 @@ export class PhotoboothStack extends cdk.Stack {
         THEMES_TABLE: this.themesTable.tableName,
         NODE_ENV: 'production',
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
+        APP_CONFIG_SECRET_ARN: this.appConfigSecret.secretArn,
       },
       healthCheck: {
         command: ['CMD-SHELL', 'nc -z localhost 3001 || exit 1'],
@@ -681,6 +693,24 @@ export class PhotoboothStack extends cdk.Stack {
     return distribution;
   }
 
+  private createAppConfigSecret(): secretsmanager.Secret {
+    // Create secret with initial placeholder values
+    const secret = new secretsmanager.Secret(this, 'AppConfigSecret', {
+      secretName: `photobooth-config-${this.environmentConfig.environment}`,
+      description: 'Application configuration URLs and settings',
+      secretStringValue: cdk.SecretValue.unsafePlainText(JSON.stringify({
+        API_URL: `http://${this.loadBalancer.loadBalancerDnsName}/api`,
+        FRONTEND_URL: `https://${this.distribution.distributionDomainName}`,
+        CLOUDFRONT_URL: `https://${this.distribution.distributionDomainName}`,
+        ALB_URL: `http://${this.loadBalancer.loadBalancerDnsName}`,
+        S3_BUCKET: this.bucket.bucketName,
+        ENVIRONMENT: this.environmentConfig.environment,
+      })),
+    });
+
+    return secret;
+  }
+
   private createOutputs(): void {
     new cdk.CfnOutput(this, 'BucketName', {
       value: this.bucket.bucketName,
@@ -735,6 +765,11 @@ export class PhotoboothStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LoadBalancerArn', {
       value: this.loadBalancer.loadBalancerArn,
       description: 'Application Load Balancer ARN',
+    });
+
+    new cdk.CfnOutput(this, 'AppConfigSecretArn', {
+      value: this.appConfigSecret.secretArn,
+      description: 'Application configuration secret ARN',
     });
   }
 }

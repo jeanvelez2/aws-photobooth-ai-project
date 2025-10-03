@@ -1,0 +1,212 @@
+// Service Worker for AI Photobooth
+// Provides offline functionality and caching strategies
+
+const CACHE_NAME = 'ai-photobooth-v1';
+const STATIC_CACHE = 'static-v1';
+const DYNAMIC_CACHE = 'dynamic-v1';
+const IMAGE_CACHE = 'images-v1';
+
+// Assets to cache immediately
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  // Add other critical assets that should be cached
+];
+
+// Cache strategies
+const CACHE_STRATEGIES = {
+  // Cache first for static assets
+  CACHE_FIRST: 'cache-first',
+  // Network first for API calls
+  NETWORK_FIRST: 'network-first',
+  // Stale while revalidate for images
+  STALE_WHILE_REVALIDATE: 'stale-while-revalidate'
+};
+
+// Install event - cache static assets
+self.addEventListener('install', (event) => {
+  console.log('Service Worker installing...');
+  
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then((cache) => {
+        console.log('Caching static assets');
+        return cache.addAll(STATIC_ASSETS);
+      })
+      .then(() => {
+        return self.skipWaiting();
+      })
+  );
+});
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker activating...');
+  
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== STATIC_CACHE && 
+                cacheName !== DYNAMIC_CACHE && 
+                cacheName !== IMAGE_CACHE) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+      .then(() => {
+        return self.clients.claim();
+      })
+  );
+});
+
+// Fetch event - implement caching strategies
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Handle different types of requests
+  if (isStaticAsset(url)) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
+  } else if (isAPIRequest(url)) {
+    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+  } else if (isImageRequest(url)) {
+    event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE));
+  } else {
+    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+  }
+});
+
+// Cache strategies implementation
+
+async function cacheFirst(request, cacheName) {
+  try {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (error) {
+    console.error('Cache first strategy failed:', error);
+    return new Response('Offline - content not available', { 
+      status: 503,
+      statusText: 'Service Unavailable'
+    });
+  }
+}
+
+async function networkFirst(request, cacheName) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (error) {
+    console.log('Network failed, trying cache:', error);
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Return offline page for navigation requests
+    if (request.mode === 'navigate') {
+      return caches.match('/offline.html') || new Response('Offline', { 
+        status: 503,
+        statusText: 'Service Unavailable'
+      });
+    }
+    
+    throw error;
+  }
+}
+
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+  
+  const fetchPromise = fetch(request).then((networkResponse) => {
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  }).catch(() => {
+    // Silently fail network requests for this strategy
+    return null;
+  });
+
+  return cachedResponse || fetchPromise;
+}
+
+// Helper functions
+
+function isStaticAsset(url) {
+  return url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|gif|ico|woff|woff2|ttf|eot)$/);
+}
+
+function isAPIRequest(url) {
+  return url.pathname.startsWith('/api/');
+}
+
+function isImageRequest(url) {
+  return url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/);
+}
+
+// Background sync for failed uploads
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'background-sync-upload') {
+    event.waitUntil(retryFailedUploads());
+  }
+});
+
+async function retryFailedUploads() {
+  // Implementation for retrying failed uploads when back online
+  console.log('Retrying failed uploads...');
+  
+  // This would integrate with the upload queue in the main app
+  // For now, just log the attempt
+}
+
+// Push notifications (for future enhancement)
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: '/icon-192x192.png',
+      badge: '/badge-72x72.png',
+      tag: 'ai-photobooth-notification'
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  }
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  event.waitUntil(
+    clients.openWindow('/')
+  );
+});
+
+console.log('Service Worker loaded successfully');
