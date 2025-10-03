@@ -31,17 +31,7 @@ export class ProcessingService {
    * Start image processing with error handling and fallback
    */
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
-    const { enableFallback = false, onError } = options; // Disable fallback to prevent loops
-
-    // Immediately throw error to stop the loop
-    throw errorService.createError(
-      ProcessingErrorType.SERVICE_UNAVAILABLE,
-      new Error('Service temporarily disabled to prevent browser overload'),
-      {
-        component: 'ProcessingService',
-        action: 'startProcessing',
-      }
-    );
+    const { enableFallback = false, onError } = options;
 
     try {
       return await gracefulDegradationService.executeWithFallback(
@@ -61,7 +51,6 @@ export class ProcessingService {
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             
-            // Create appropriate error based on status code
             let errorType: ProcessingErrorType;
             switch (response.status) {
               case 400:
@@ -94,7 +83,6 @@ export class ProcessingService {
 
           const result = await response.json();
           
-          // Validate response has required fields
           if (!result.id) {
             throw new Error('Invalid response: missing job ID');
           }
@@ -102,11 +90,9 @@ export class ProcessingService {
           return result;
         },
         enableFallback ? async () => {
-          // Fallback to queuing for later processing
           const fallbacks = gracefulDegradationService.getProcessingFallbacks();
           const queueResult = await fallbacks.queueForLater(request);
           
-          // Return a mock processing result for queued items
           return {
             id: `queued_${Date.now()}`,
             status: 'queued' as const,
@@ -120,11 +106,10 @@ export class ProcessingService {
         } : undefined
       );
     } catch (error) {
-      // Handle network errors specifically
       if (error instanceof TypeError && error.message.includes('fetch')) {
         const networkError = errorService.createError(
           ProcessingErrorType.SERVICE_UNAVAILABLE,
-          new Error(`Backend service is unavailable. Please try again later. (${error.message})`),
+          new Error(`Backend service is unavailable. Please try again later. (${(error as Error).message})`),
           {
             component: 'ProcessingService',
             action: 'startProcessing',
@@ -134,7 +119,7 @@ export class ProcessingService {
         throw networkError;
       }
       
-      const processedError = errorService.parseError(error, {
+      const processedError = errorService.parseError(error as Error, {
         component: 'ProcessingService',
         action: 'startProcessing',
       });
@@ -202,7 +187,7 @@ export class ProcessingService {
         throw networkError;
       }
       
-      const processedError = errorService.parseError(error, {
+      const processedError = errorService.parseError(error as Error, {
         component: 'ProcessingService',
         action: 'getProcessingStatus',
         jobId: id,
