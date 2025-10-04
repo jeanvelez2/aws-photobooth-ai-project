@@ -36,6 +36,7 @@ describe('Shared Types', () => {
       id: 'barbarian',
       name: 'Barbarian',
       description: 'Ancient warrior theme',
+      category: 'fantasy',
       thumbnailUrl: '/themes/barbarian/thumb.jpg',
       templateUrl: '/themes/barbarian/template.jpg',
       variants: []
@@ -86,7 +87,7 @@ describe('Shared Types', () => {
       originalImageUrl: 's3://bucket/original.jpg',
       themeId: 'barbarian',
       status: 'processing',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       retryCount: 0,
       outputFormat: 'jpeg'
     };

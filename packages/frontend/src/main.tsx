@@ -1,13 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import ErrorBoundary from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerServiceWorker } from './utils/serviceWorker';
 import { performanceMonitor } from './utils/performanceMonitor';
+import { performanceMonitor as budgetMonitor } from './utils/performanceBudget';
 import './index.css';
 
 // Initialize performance monitoring
 const appStartTime = Date.now();
+
+// Start performance budget monitoring
+budgetMonitor.measureWebVitals();
+budgetMonitor.checkBundleSize();
 
 // Register service worker for offline functionality
 registerServiceWorker({

@@ -322,7 +322,7 @@ jobs:
           exit 1
         fi
     
-    - name: Invalidate CloudFront
+    - name: Invalidate CloudFront Cache
       run: |
         DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
           --stack-name PhotoboothStack-dev \
@@ -330,9 +330,12 @@ jobs:
           --output text \
           --region ${{ env.AWS_REGION }})
         
+        echo "Invalidating CloudFront cache for distribution: $DISTRIBUTION_ID"
         aws cloudfront create-invalidation \
           --distribution-id $DISTRIBUTION_ID \
-          --paths "/*"
+          --paths "/*" \
+          --query 'Invalidation.Id' \
+          --output text
     
     - name: Update ECS service with new image and ensure capacity
       run: |

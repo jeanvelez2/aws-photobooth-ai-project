@@ -22,9 +22,44 @@ export class ProcessingService {
   private readonly API_BASE_URL: string;
   private readonly POLLING_INTERVAL = 2000; // 2 seconds
   private readonly MAX_PROCESSING_TIME = 30000; // 30 seconds
+  private readonly circuitBreaker = new Map<string, { failures: number; lastFailure: number; isOpen: boolean }>();
+  private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
+  private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
 
   constructor(apiBaseUrl?: string) {
     this.API_BASE_URL = apiBaseUrl || import.meta.env.VITE_API_URL || '/api';
+  }
+
+  private checkCircuitBreaker(endpoint: string): boolean {
+    const circuit = this.circuitBreaker.get(endpoint);
+    if (!circuit) return true;
+
+    if (circuit.isOpen) {
+      const now = Date.now();
+      if (now - circuit.lastFailure > this.CIRCUIT_BREAKER_TIMEOUT) {
+        circuit.isOpen = false;
+        circuit.failures = 0;
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  private recordFailure(endpoint: string): void {
+    const circuit = this.circuitBreaker.get(endpoint) || { failures: 0, lastFailure: 0, isOpen: false };
+    circuit.failures++;
+    circuit.lastFailure = Date.now();
+    
+    if (circuit.failures >= this.CIRCUIT_BREAKER_THRESHOLD) {
+      circuit.isOpen = true;
+    }
+    
+    this.circuitBreaker.set(endpoint, circuit);
+  }
+
+  private recordSuccess(endpoint: string): void {
+    this.circuitBreaker.delete(endpoint);
   }
 
   /**
@@ -32,6 +67,18 @@ export class ProcessingService {
    */
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
     const { enableFallback = false, onError } = options;
+    const endpoint = 'process';
+
+    // Check circuit breaker
+    if (!this.checkCircuitBreaker(endpoint)) {
+      const error = errorService.createError(
+        ProcessingErrorType.SERVICE_UNAVAILABLE,
+        new Error('Service temporarily unavailable due to repeated failures'),
+        { component: 'ProcessingService', action: 'startProcessing' }
+      );
+      onError?.(error);
+      throw error;
+    }
 
     try {
       // Validate executor functions before execution
@@ -86,6 +133,7 @@ export class ProcessingService {
           throw new Error('Invalid response: missing job ID');
         }
         
+        this.recordSuccess(endpoint);
         return result;
       };
       
@@ -119,6 +167,8 @@ export class ProcessingService {
         safeFallbackExecutor
       );
     } catch (error) {
+      this.recordFailure(endpoint);
+      
       if (error instanceof TypeError && error.message.includes('fetch')) {
         const networkError = errorService.createError(
           ProcessingErrorType.SERVICE_UNAVAILABLE,

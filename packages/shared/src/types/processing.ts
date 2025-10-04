@@ -13,15 +13,16 @@ export interface ProcessingJob {
   originalImageUrl: string;
   themeId: string;
   variantId?: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
   resultImageUrl?: string;
   error?: string;
   processingTimeMs?: number;
   retryCount: number;
   outputFormat: 'jpeg' | 'png';
-  createdAt: Date;
-  updatedAt?: Date;
-  completedAt?: Date;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  imageUrl?: string;
 }
 
 export interface ProcessingResult {
@@ -52,3 +53,5 @@ export interface ProcessingConfig {
     maxPoseAngle: number;
   };
 }
+
+export type JobStatus = 'pending' | 'queued' | 'processing' | 'completed' | 'failed';

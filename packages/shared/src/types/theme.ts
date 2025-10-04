@@ -2,6 +2,7 @@ export interface Theme {
   id: string;
   name: string;
   description: string;
+  category: string;
   thumbnailUrl: string;
   templateUrl: string;
   variants: ThemeVariant[];
@@ -13,6 +14,7 @@ export interface ThemeVariant {
   description?: string;
   thumbnailUrl: string;
   templateUrl: string;
+  gender?: 'Male' | 'Female';
   faceRegion: {
     x: number;
     y: number;

@@ -17,6 +17,7 @@
     "diff": "cdk diff",
     "synth": "cdk synth",
     "validate-deployment": "node scripts/validate-deployment.js",
+    "invalidate:cache": "tsx src/scripts/invalidateCache.ts",
     "lint": "echo 'Infrastructure: TypeScript compilation serves as linting'",
     "lint:fix": "echo 'Infrastructure: No lint fixes needed'"
   },
@@ -27,9 +28,11 @@
     "jest": "^30.2.0",
     "ts-jest": "^29.2.0",
     "ts-node": "^10.9.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.7.0"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.716.0",
     "aws-cdk-lib": "^2.175.0",
     "aws-sdk": "^2.1692.0",
     "constructs": "^10.4.0"

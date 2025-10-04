@@ -1,135 +1,157 @@
 # AI Photobooth Infrastructure
 
-This package contains the AWS CDK infrastructure code for the AI Photobooth application.
+AWS CDK infrastructure as code for scalable, secure, and monitored deployment.
 
-## Architecture Overview
+## Architecture
 
-The infrastructure includes:
+- **Compute**: ECS Fargate with auto-scaling and load balancing
+- **Storage**: S3 with CloudFront CDN and lifecycle policies
+- **Database**: DynamoDB with on-demand scaling
+- **AI/ML**: AWS Rekognition for face detection and analysis
+- **Monitoring**: CloudWatch with custom metrics and alarms
+- **Security**: VPC, security groups, and IAM roles with least privilege
 
-- **S3 Bucket**: For storing uploaded images, processed results, and static website content
-- **DynamoDB Tables**: For processing jobs and theme management
-- **ECS Fargate Cluster**: For running the image processing service with GPU support
-- **Application Load Balancer**: For distributing traffic to ECS tasks
-- **CloudFront Distribution**: For global content delivery and caching
-- **VPC**: With public and private subnets across multiple AZs
-- **Security Groups**: For network access control
-- **IAM Roles**: With least-privilege permissions
+## Stacks
 
-## Prerequisites
+### PhotoboothStack
+Main application infrastructure including:
+- ECS cluster with Fargate services
+- Application Load Balancer with SSL termination
+- S3 bucket with CloudFront distribution
+- DynamoDB tables for jobs and themes
+- CloudWatch dashboards and alarms
 
-1. AWS CLI configured with appropriate credentials
-2. Node.js 18+ installed (Node.js 22+ recommended)
-3. AWS CDK CLI installed globally: `npm install -g aws-cdk@latest`
+### EcrStack
+Container registry for Docker images:
+- ECR repositories for frontend and backend
+- Lifecycle policies for image cleanup
+- Cross-account access policies
 
-## Setup
-
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Bootstrap CDK (first time only):
-   ```bash
-   npx cdk bootstrap
-   ```
+### Monitoring
+Comprehensive observability:
+- Custom CloudWatch metrics
+- SNS topics for alerting
+- Performance budget monitoring
+- Error rate and success rate tracking
 
 ## Deployment
 
-1. Build the TypeScript code:
-   ```bash
-   npm run build
-   ```
-
-2. Review the changes:
-   ```bash
-   npm run diff
-   ```
-
-3. Deploy the stack:
-   ```bash
-   npm run deploy
-   ```
-
-## Environment Variables
-
-Set these environment variables before deployment:
-
-- `CDK_DEFAULT_ACCOUNT`: Your AWS account ID
-- `CDK_DEFAULT_REGION`: Target AWS region (default: us-east-1)
-- `ENVIRONMENT`: Environment name (dev/staging/prod)
-
-## Testing
-
-Run the infrastructure tests:
-
 ```bash
-npm test
+# Install dependencies
+npm install
+
+# Bootstrap CDK (first time only)
+cdk bootstrap
+
+# Deploy ECR repositories
+cdk deploy EcrStack-dev
+
+# Deploy main infrastructure
+cdk deploy PhotoboothStack-dev
+
+# Deploy with specific context
+cdk deploy --context environment=prod
+
+# Destroy infrastructure
+cdk destroy
 ```
 
-## Cleanup
+## Environment Configuration
 
-To destroy the stack and all resources:
-
+### Development
 ```bash
-npm run destroy
+cdk deploy --context environment=dev
 ```
+- Single AZ deployment
+- Minimal instance sizes
+- Development-friendly settings
 
-**Warning**: This will delete all data in S3 buckets and DynamoDB tables.
+### Production
+```bash
+cdk deploy --context environment=prod
+```
+- Multi-AZ deployment
+- Production instance sizes
+- Enhanced monitoring and alerting
+
+## Monitoring & Alerting
+
+### CloudWatch Metrics
+- Processing time and success rate
+- Memory and CPU utilization
+- Request count and error rate
+- Performance budget violations
+
+### Alarms
+- Processing time > 10 seconds
+- Error rate > 5%
+- Memory usage > 80%
+- Failed job count threshold
+
+### Dashboards
+- Real-time performance metrics
+- System health overview
+- Cost and usage tracking
+- User activity patterns
+
+## Security
+
+### Network Security
+- VPC with private subnets
+- Security groups with minimal access
+- NAT Gateway for outbound traffic
+- VPC endpoints for AWS services
+
+### Access Control
+- IAM roles with least privilege
+- Service-to-service authentication
+- Encrypted data at rest and in transit
+- Secure secrets management
+
+### Compliance
+- GDPR-compliant data handling
+- Automatic data lifecycle management
+- Audit logging and monitoring
+- Privacy-focused architecture
 
 ## Cost Optimization
 
-The infrastructure is configured with cost optimization in mind:
+### Resource Optimization
+- On-demand DynamoDB scaling
+- S3 lifecycle policies
+- ECS auto-scaling policies
+- CloudFront caching strategies
 
-- Single NAT Gateway instead of one per AZ
-- CloudFront PriceClass 100 (North America and Europe only)
-- DynamoDB Pay-per-request billing
-- ECS auto-scaling with conservative scaling policies
-- S3 lifecycle policies for automatic cleanup
+### Monitoring
+- Cost allocation tags
+- Budget alerts and limits
+- Resource utilization tracking
+- Rightsizing recommendations
 
-## Security Features
+## Scaling
 
-- All S3 buckets have public access blocked
-- Security groups follow least-privilege principles
-- IAM roles have minimal required permissions
-- CloudFront enforces HTTPS with modern Origin Access Control (OAC)
-- VPC isolates resources in private subnets
-- DynamoDB tables have point-in-time recovery enabled
-- All resources use latest security best practices
+### Horizontal Scaling
+- ECS service auto-scaling
+- Application Load Balancer
+- DynamoDB on-demand capacity
+- CloudFront global distribution
 
-## Monitoring
+### Performance
+- CDN edge caching
+- Database query optimization
+- Image processing optimization
+- Background job processing
 
-The infrastructure includes:
+## Disaster Recovery
 
-- CloudWatch log groups for ECS tasks
-- Container insights for ECS cluster
-- Health checks for load balancer targets
-- Auto-scaling based on CPU and memory metrics
+### Backup Strategy
+- S3 cross-region replication
+- DynamoDB point-in-time recovery
+- Infrastructure as code versioning
+- Automated backup verification
 
-## Outputs
-
-After deployment, the stack outputs:
-
-- S3 bucket name
-- DynamoDB table names
-- Load balancer DNS name
-- CloudFront distribution domain name
-- ECS cluster name
-
-These outputs can be used by the application code to connect to AWS resources.
-
-## Latest Updates
-
-This infrastructure uses the latest AWS CDK version (2.175.0+) with modern best practices:
-
-- **Updated Dependencies**: All dependencies upgraded to latest stable versions
-- **Modern CloudFront**: Uses Origin Access Control (OAC) instead of legacy Origin Access Identity (OAI)
-- **Enhanced DynamoDB**: Uses `pointInTimeRecoverySpecification` for better backup configuration
-- **Security Improvements**: Latest security patterns and configurations
-- **TypeScript 5.7+**: Latest TypeScript features and improvements
-- **Node.js 22 Support**: Compatible with the latest Node.js LTS versions
-
-### Breaking Changes from Previous Versions
-
-- CloudFront now uses OAC which provides better security and performance
-- DynamoDB configuration uses the new specification format
-- Some deprecated APIs have been replaced with modern equivalents
+### Recovery Procedures
+- Multi-AZ deployment
+- Automated failover
+- Infrastructure recreation
+- Data restoration processes

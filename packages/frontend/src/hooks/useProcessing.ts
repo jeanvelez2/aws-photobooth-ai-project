@@ -40,6 +40,10 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
   // Store the last request for retry functionality
   const lastRequestRef = useRef<ProcessingRequest | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const retryCountRef = useRef(0);
+  const lastRequestTimeRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const MIN_REQUEST_INTERVAL = 5000; // 5 seconds between requests
 
   // Start processing
   const startProcessing = useCallback(async (request: ProcessingRequest) => {
@@ -47,6 +51,27 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       console.warn('Processing already in progress');
       return;
     }
+
+    // Check retry limit
+    if (retryCountRef.current >= MAX_RETRIES) {
+      const maxRetriesError = errorService.createError(
+        'INTERNAL_ERROR' as any,
+        new Error('Maximum retry attempts reached'),
+        { component: 'useProcessing', action: 'startProcessing' }
+      );
+      setError(maxRetriesError);
+      return;
+    }
+
+    // Throttle requests
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTimeRef.current;
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+      const delay = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      console.log(`Throttling request, waiting ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    lastRequestTimeRef.current = Date.now();
 
     // Store request for potential retry
     lastRequestRef.current = request;
@@ -116,14 +141,30 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
         return; // Don't show error for user cancellation
       }
 
-      console.error('Processing failed:', err);
+      retryCountRef.current++;
+      console.error(`Processing failed (attempt ${retryCountRef.current}):`, err);
+      
       const processingError = errorService.parseError(err, {
         component: 'useProcessing',
         action: 'processImage',
       });
-      setError(processingError);
-      dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
-      options.onError?.(processingError);
+      
+      // Only set error if we've exceeded max retries or it's not retryable
+      if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable) {
+        setError(processingError);
+        dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
+        options.onError?.(processingError);
+      } else {
+        // Auto-retry with exponential backoff
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 10000);
+        console.log(`Auto-retrying in ${backoffDelay}ms...`);
+        setTimeout(() => {
+          if (lastRequestRef.current) {
+            startProcessing(lastRequestRef.current);
+          }
+        }, backoffDelay);
+        return;
+      }
     } finally {
       setIsProcessing(false);
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -171,6 +212,9 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
     setError(null);
     setProgress(0);
     lastRequestRef.current = null;
+    retryCountRef.current = 0;
+    lastRequestTimeRef.current = 0;
+    sessionStorage.removeItem('lastProcessingRequest');
     dispatch({ type: 'SET_PROCESSING_STATUS', payload: null });
   }, [cancelProcessing, dispatch]);
 

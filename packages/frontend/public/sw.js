@@ -188,6 +188,19 @@ function isValidUrl(urlString) {
       return false;
     }
     
+    // Prevent access to private IP ranges
+    const hostname = url.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname.startsWith('127.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+      hostname.startsWith('169.254.') // AWS metadata service
+    ) {
+      return false;
+    }
+    
     // Get current origin
     const currentOrigin = self.location.origin;
     
@@ -196,19 +209,18 @@ function isValidUrl(urlString) {
       return true;
     }
     
-    // Allow specific trusted domains (add your CDN/API domains here)
+    // Allow specific trusted domains
     const trustedDomains = [
       'amazonaws.com',
-      'cloudfront.net'
+      'cloudfront.net',
+      'googleapis.com',
+      'gstatic.com'
     ];
     
-    const isAllowedDomain = trustedDomains.some(domain => 
-      url.hostname.endsWith('.' + domain) || url.hostname === domain
+    return trustedDomains.some(domain => 
+      hostname === domain || hostname.endsWith('.' + domain)
     );
-    
-    return isAllowedDomain;
   } catch (error) {
-    // Invalid URL format
     return false;
   }
 }

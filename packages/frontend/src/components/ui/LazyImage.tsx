@@ -33,7 +33,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
 
   // Intersection Observer for lazy loading
   useEffect(() => {
-    if (priority || isInView) return;
+    if (priority || isInView) return undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -68,6 +68,27 @@ const LazyImage: React.FC<LazyImageProps> = ({
 
   // Generate placeholder with proper dimensions
   const placeholderSrc = placeholder || generatePlaceholder(width, height);
+  
+  if (hasError) {
+    return (
+      <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <svg 
+            className="w-8 h-8 mx-auto mb-2" 
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+          >
+            <path 
+              fillRule="evenodd" 
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+          <p className="text-xs">Failed to load</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -101,25 +122,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
         </div>
       )}
 
-      {/* Error state */}
-      {hasError && (
-        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            <svg 
-              className="w-8 h-8 mx-auto mb-2" 
-              fill="currentColor" 
-              viewBox="0 0 20 20"
-            >
-              <path 
-                fillRule="evenodd" 
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" 
-                clipRule="evenodd" 
-              />
-            </svg>
-            <p className="text-xs">Failed to load</p>
-          </div>
-        </div>
-      )}
+
 
       {/* Actual image */}
       <img

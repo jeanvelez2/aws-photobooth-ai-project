@@ -59,10 +59,17 @@ export default function ProcessingPage() {
     setProcessingRequest(request);
   }, [currentPhoto, selectedTheme, selectedVariant, navigate]);
 
-  // Start processing when request is ready
+  // Start processing when request is ready (with deduplication)
   useEffect(() => {
     if (processingRequest && !isProcessing && !result && !error) {
-      startProcessing(processingRequest);
+      // Prevent duplicate requests by checking if we already have this request
+      const requestKey = `${processingRequest.photoId}-${processingRequest.themeId}`;
+      const lastRequestKey = sessionStorage.getItem('lastProcessingRequest');
+      
+      if (lastRequestKey !== requestKey) {
+        sessionStorage.setItem('lastProcessingRequest', requestKey);
+        startProcessing(processingRequest);
+      }
     }
   }, [processingRequest, isProcessing, result, error, startProcessing]);
 

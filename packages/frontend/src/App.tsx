@@ -5,7 +5,7 @@ import { queryClient } from './lib/queryClient';
 import { AppProvider } from './contexts/AppContext';
 import Layout from './components/layout/Layout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import ErrorBoundary from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load pages for code splitting
 const CapturePage = React.lazy(() => import('./pages/CapturePage'));
