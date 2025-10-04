@@ -173,7 +173,7 @@ export class PhotoboothStack extends cdk.Stack {
   }
 
   private createVpc(): ec2.Vpc {
-    return new ec2.Vpc(this, 'PhotoboothVpc', {
+    const vpc = new ec2.Vpc(this, 'PhotoboothVpc', {
       maxAzs: 2,
       natGateways: 1, // Cost optimization - use 1 NAT gateway
       subnetConfiguration: [
@@ -189,6 +189,30 @@ export class PhotoboothStack extends cdk.Stack {
         },
       ],
     });
+
+    // Add VPC endpoints for AWS services to improve connectivity from private subnets
+    vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    vpc.addGatewayEndpoint('DynamoDbEndpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+    });
+
+    // Add interface endpoints for other AWS services
+    vpc.addInterfaceEndpoint('RekognitionEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.REKOGNITION,
+    });
+
+    vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_MONITORING,
+    });
+
+    vpc.addInterfaceEndpoint('CloudWatchLogsEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+    });
+
+    return vpc;
   }
 
   private createEcsCluster(vpc: ec2.Vpc, ecsSecurityGroup: ec2.SecurityGroup): ecs.Cluster {
@@ -510,25 +534,30 @@ export class PhotoboothStack extends cdk.Stack {
       },
     });
 
-    // Create HTTP listener that redirects to HTTPS
-    alb.addListener('HttpListener', {
-      port: 80,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultAction: elbv2.ListenerAction.redirect({
-        protocol: 'HTTPS',
-        port: '443',
-        permanent: true,
-      }),
-    });
-
-    // Create HTTPS listener (requires SSL certificate in production)
-    // For development, we'll use HTTP internally but this structure is ready for SSL
+    // Create HTTP listener - for dev it forwards to target group, for prod it redirects to HTTPS
     if (this.environmentConfig.environment === 'production') {
+      alb.addListener('HttpListener', {
+        port: 80,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        defaultAction: elbv2.ListenerAction.redirect({
+          protocol: 'HTTPS',
+          port: '443',
+          permanent: true,
+        }),
+      });
+
       alb.addListener('HttpsListener', {
         port: 443,
         protocol: elbv2.ApplicationProtocol.HTTPS,
         defaultAction: elbv2.ListenerAction.forward([targetGroup]),
         // certificateArns: [props.sslCertificateArn], // Add SSL certificate ARN
+      });
+    } else {
+      // For dev environment, use HTTP listener that forwards to target group
+      alb.addListener('HttpListener', {
+        port: 80,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        defaultAction: elbv2.ListenerAction.forward([targetGroup]),
       });
     }
 
@@ -541,7 +570,9 @@ export class PhotoboothStack extends cdk.Stack {
 
     // Create ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(this.loadBalancer.loadBalancerDnsName, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+      protocolPolicy: this.environmentConfig.environment === 'production' 
+        ? cloudfront.OriginProtocolPolicy.HTTPS_ONLY 
+        : cloudfront.OriginProtocolPolicy.HTTP_ONLY,
       connectionAttempts: 3,
       connectionTimeout: cdk.Duration.seconds(10),
       readTimeout: cdk.Duration.seconds(30),
