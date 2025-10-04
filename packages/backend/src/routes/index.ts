@@ -46,6 +46,24 @@ router.get('/', generalRateLimiter, asyncHandler(async (req: Request, res: Respo
   });
 }));
 
+// Handle POST requests to root path (redirect to correct endpoint)
+router.post('/', generalRateLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string;
+  
+  logger.warn('POST request to root path - should use /api/process', { 
+    requestId, 
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
+  res.status(400).json({
+    error: 'Invalid endpoint',
+    message: 'POST requests should be sent to /api/process for photo processing',
+    correctEndpoint: '/api/process',
+    requestId,
+  });
+}));
+
 // Mount theme routes (with general rate limiting)
 router.use('/themes', generalRateLimiter, themesRouter);
 
