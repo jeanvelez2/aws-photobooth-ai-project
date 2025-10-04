@@ -58,23 +58,23 @@ export class ProcessingWorker {
         return;
       }
 
-      logger.info('Starting job processing', { jobId: job.id });
+      logger.info('Starting job processing', { jobId: job.jobId });
 
       // Add X-Ray annotations for tracing
-      addAnnotation('jobId', job.id);
+      addAnnotation('jobId', job.jobId);
       addAnnotation('themeId', job.themeId);
       if (job.variantId) {
         addAnnotation('variantId', job.variantId);
       }
 
       // Update job status to processing
-      await processingJobService.updateJobStatus(job.id, 'processing');
+      await processingJobService.updateJobStatus(job.jobId, 'processing');
 
       // Find the theme variant
       const themeVariant = this.findThemeVariant(job.themeId, job.variantId);
       
       if (!themeVariant) {
-        await this.handleJobError(job.id, 'THEME_NOT_FOUND', 'The selected theme variant was not found');
+        await this.handleJobError(job.jobId, 'THEME_NOT_FOUND', 'The selected theme variant was not found');
         return;
       }
 
@@ -83,7 +83,7 @@ export class ProcessingWorker {
         processingPipeline.validateProcessingRequest(job, themeVariant);
       } catch (validationError) {
         const errorMessage = validationError instanceof Error ? validationError.message : 'Validation failed';
-        await this.handleJobError(job.id, 'VALIDATION_FAILED', errorMessage);
+        await this.handleJobError(job.jobId, 'VALIDATION_FAILED', errorMessage);
         return;
       }
 
@@ -92,7 +92,7 @@ export class ProcessingWorker {
         if (subsegment) {
           subsegment.addAnnotation('themeId', job.themeId);
           subsegment.addMetadata('job', {
-            id: job.id,
+            id: job.jobId,
             themeId: job.themeId,
             variantId: job.variantId,
             createdAt: job.createdAt,
@@ -112,13 +112,13 @@ export class ProcessingWorker {
 
         // Update job as completed
         await processingJobService.completeJob(
-          job.id,
+          job.jobId,
           result.resultImageUrl,
           result.processingTimeMs
         );
         
         logger.info('Job completed successfully', {
-          jobId: job.id,
+          jobId: job.jobId,
           resultUrl: result.resultImageUrl,
           processingTimeMs: result.processingTimeMs,
           imageSizeBytes: result.imageSizeBytes,
@@ -148,7 +148,7 @@ export class ProcessingWorker {
 
         // Handle processing failure
         await this.handleJobError(
-          job.id,
+          job.jobId,
           result.errorType || 'PROCESSING_FAILED',
           result.error || 'Image processing failed'
         );

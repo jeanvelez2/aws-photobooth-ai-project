@@ -74,7 +74,7 @@ export class JobCleanupService {
       let cleanedCount = 0;
       for (const job of failedJobs) {
         if (job.createdAt < cutoffTime) {
-          await processingJobService.deleteJob(job.id);
+          await processingJobService.deleteJob(job.jobId);
           cleanedCount++;
         }
       }
@@ -86,7 +86,10 @@ export class JobCleanupService {
         });
       }
     } catch (error) {
-      logger.error('Failed to cleanup old failed jobs', { error, olderThanHours });
+      logger.error('Failed to cleanup old failed jobs', { 
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error', 
+        olderThanHours 
+      });
     }
   }
 

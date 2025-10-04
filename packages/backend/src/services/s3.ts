@@ -106,9 +106,17 @@ export class S3Service {
 
       // Generate the pre-signed URL using pooled client
       const expiresIn = this.expiryMinutes * 60; // Convert minutes to seconds
-      const uploadUrl = await s3ClientPool.execute(async (client) => {
+      
+      // Validate function is safe before execution
+      const safeExecutor = async (client: any) => {
         return await getSignedUrl(client, command, { expiresIn });
-      });
+      };
+      
+      if (typeof safeExecutor !== 'function') {
+        throw new Error('Invalid executor function');
+      }
+      
+      const uploadUrl = await s3ClientPool.execute(safeExecutor);
 
       logger.info('Pre-signed upload URL generated', {
         key,
@@ -155,9 +163,16 @@ export class S3Service {
         Key: key,
       });
 
-      const response = await s3ClientPool.execute(async (client) => {
+      // Validate function is safe before execution
+      const safeExecutor = async (client: any) => {
         return await client.send(command);
-      });
+      };
+      
+      if (typeof safeExecutor !== 'function') {
+        throw new Error('Invalid executor function');
+      }
+      
+      const response = await s3ClientPool.execute(safeExecutor);
       
       if (!response.Body) {
         throw new Error('No file content received from S3');
@@ -209,9 +224,16 @@ export class S3Service {
         },
       });
 
-      await s3ClientPool.execute(async (client) => {
+      // Validate function is safe before execution
+      const safeExecutor = async (client: any) => {
         return await client.send(command);
-      });
+      };
+      
+      if (typeof safeExecutor !== 'function') {
+        throw new Error('Invalid executor function');
+      }
+      
+      await s3ClientPool.execute(safeExecutor);
       
       const url = `https://${this.bucketName}.s3.amazonaws.com/${key}`;
       
@@ -243,9 +265,16 @@ export class S3Service {
         Key: key,
       });
 
-      const downloadUrl = await s3ClientPool.execute(async (client) => {
+      // Validate function is safe before execution
+      const safeExecutor = async (client: any) => {
         return await getSignedUrl(client, command, { expiresIn });
-      });
+      };
+      
+      if (typeof safeExecutor !== 'function') {
+        throw new Error('Invalid executor function');
+      }
+      
+      const downloadUrl = await s3ClientPool.execute(safeExecutor);
 
       logger.info('Pre-signed download URL generated', {
         key,

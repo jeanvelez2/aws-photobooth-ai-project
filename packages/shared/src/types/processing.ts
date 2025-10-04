@@ -7,6 +7,23 @@ export interface ProcessingRequest {
   originalImageUrl: string;
 }
 
+export interface ProcessingJob {
+  jobId: string;
+  userId?: string;
+  originalImageUrl: string;
+  themeId: string;
+  variantId?: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  resultImageUrl?: string;
+  error?: string;
+  processingTimeMs?: number;
+  retryCount: number;
+  outputFormat: 'jpeg' | 'png';
+  createdAt: Date;
+  updatedAt?: Date;
+  completedAt?: Date;
+}
+
 export interface ProcessingResult {
   id: string;
   status: 'processing' | 'completed' | 'failed';

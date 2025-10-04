@@ -34,76 +34,89 @@ export class ProcessingService {
     const { enableFallback = false, onError } = options;
 
     try {
+      // Validate executor functions before execution
+      const safeMainExecutor = async () => {
+        console.log('Sending processing request:', request);
+        const response = await fetch(`${this.API_BASE_URL}/process`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+          signal: options.signal,
+        });
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          
+          let errorType: ProcessingErrorType;
+          switch (response.status) {
+            case 400:
+              errorType = errorData.code === 'NO_FACE_DETECTED' 
+                ? ProcessingErrorType.NO_FACE_DETECTED 
+                : ProcessingErrorType.INVALID_IMAGE_FORMAT;
+              break;
+            case 413:
+              errorType = ProcessingErrorType.IMAGE_TOO_LARGE;
+              break;
+            case 429:
+              errorType = ProcessingErrorType.RATE_LIMITED;
+              break;
+            case 503:
+              errorType = ProcessingErrorType.SERVICE_UNAVAILABLE;
+              break;
+            default:
+              errorType = ProcessingErrorType.INTERNAL_ERROR;
+          }
+
+          const error = errorService.createError(errorType, new Error(errorData.message || `HTTP ${response.status}`), {
+            component: 'ProcessingService',
+            action: 'startProcessing',
+            httpStatus: response.status,
+          });
+
+          onError?.(error);
+          throw error;
+        }
+
+        const result = await response.json();
+        
+        if (!result.id) {
+          throw new Error('Invalid response: missing job ID');
+        }
+        
+        return result;
+      };
+      
+      const safeFallbackExecutor = enableFallback ? async () => {
+        const fallbacks = gracefulDegradationService.getProcessingFallbacks();
+        const queueResult = await fallbacks.queueForLater(request);
+        
+        return {
+          id: `queued_${Date.now()}`,
+          status: 'queued' as const,
+          progress: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          request,
+          message: 'Your image has been queued for processing. Please try again later.',
+          queuePosition: queueResult.position || 1,
+        };
+      } : undefined;
+      
+      if (typeof safeMainExecutor !== 'function') {
+        throw new Error('Invalid main executor function');
+      }
+      
+      if (safeFallbackExecutor && typeof safeFallbackExecutor !== 'function') {
+        throw new Error('Invalid fallback executor function');
+      }
+      
       return await gracefulDegradationService.executeWithFallback(
         'processing',
-        async () => {
-          console.log('Sending processing request:', request);
-          const response = await fetch(`${this.API_BASE_URL}/process`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(request),
-            signal: options.signal,
-          });
-          console.log('Response status:', response.status);
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            
-            let errorType: ProcessingErrorType;
-            switch (response.status) {
-              case 400:
-                errorType = errorData.code === 'NO_FACE_DETECTED' 
-                  ? ProcessingErrorType.NO_FACE_DETECTED 
-                  : ProcessingErrorType.INVALID_IMAGE_FORMAT;
-                break;
-              case 413:
-                errorType = ProcessingErrorType.IMAGE_TOO_LARGE;
-                break;
-              case 429:
-                errorType = ProcessingErrorType.RATE_LIMITED;
-                break;
-              case 503:
-                errorType = ProcessingErrorType.SERVICE_UNAVAILABLE;
-                break;
-              default:
-                errorType = ProcessingErrorType.INTERNAL_ERROR;
-            }
-
-            const error = errorService.createError(errorType, new Error(errorData.message || `HTTP ${response.status}`), {
-              component: 'ProcessingService',
-              action: 'startProcessing',
-              httpStatus: response.status,
-            });
-
-            onError?.(error);
-            throw error;
-          }
-
-          const result = await response.json();
-          
-          if (!result.id) {
-            throw new Error('Invalid response: missing job ID');
-          }
-          
-          return result;
-        },
-        enableFallback ? async () => {
-          const fallbacks = gracefulDegradationService.getProcessingFallbacks();
-          const queueResult = await fallbacks.queueForLater(request);
-          
-          return {
-            id: `queued_${Date.now()}`,
-            status: 'queued' as const,
-            progress: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            request,
-            message: 'Your image has been queued for processing. Please try again later.',
-            queuePosition: queueResult.position || 1,
-          };
-        } : undefined
+        safeMainExecutor,
+        safeFallbackExecutor
       );
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {

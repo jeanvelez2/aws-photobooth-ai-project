@@ -95,6 +95,11 @@ async function cacheFirst(request, cacheName) {
       return cachedResponse;
     }
 
+    // Validate URL before making network request
+    if (!isValidUrl(request.url)) {
+      throw new Error('Invalid URL detected');
+    }
+
     const networkResponse = await fetch(request);
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
@@ -112,6 +117,11 @@ async function cacheFirst(request, cacheName) {
 
 async function networkFirst(request, cacheName) {
   try {
+    // Validate URL before making network request
+    if (!isValidUrl(request.url)) {
+      throw new Error('Invalid URL detected');
+    }
+
     const networkResponse = await fetch(request);
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
@@ -141,7 +151,7 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cachedResponse = await cache.match(request);
   
-  const fetchPromise = fetch(request).then((networkResponse) => {
+  const fetchPromise = isValidUrl(request.url) ? fetch(request).then((networkResponse) => {
     if (networkResponse.ok) {
       cache.put(request, networkResponse.clone());
     }
@@ -149,7 +159,7 @@ async function staleWhileRevalidate(request, cacheName) {
   }).catch(() => {
     // Silently fail network requests for this strategy
     return null;
-  });
+  }) : Promise.resolve(null);
 
   return cachedResponse || fetchPromise;
 }
@@ -166,6 +176,41 @@ function isAPIRequest(url) {
 
 function isImageRequest(url) {
   return url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/);
+}
+
+// URL validation to prevent SSRF attacks
+function isValidUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    
+    // Only allow HTTPS and same-origin requests
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return false;
+    }
+    
+    // Get current origin
+    const currentOrigin = self.location.origin;
+    
+    // Allow same-origin requests
+    if (url.origin === currentOrigin) {
+      return true;
+    }
+    
+    // Allow specific trusted domains (add your CDN/API domains here)
+    const trustedDomains = [
+      'amazonaws.com',
+      'cloudfront.net'
+    ];
+    
+    const isAllowedDomain = trustedDomains.some(domain => 
+      url.hostname.endsWith('.' + domain) || url.hostname === domain
+    );
+    
+    return isAllowedDomain;
+  } catch (error) {
+    // Invalid URL format
+    return false;
+  }
 }
 
 // Background sync for failed uploads
@@ -204,9 +249,22 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+  // Only open same-origin URLs to prevent malicious redirects
+  const targetUrl = event.notification.data?.url || '/';
+  
+  try {
+    const url = new URL(targetUrl, self.location.origin);
+    if (url.origin === self.location.origin) {
+      event.waitUntil(
+        clients.openWindow(url.pathname)
+      );
+    }
+  } catch (error) {
+    // Invalid URL, default to home
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  }
 });
 
 console.log('Service Worker loaded successfully');

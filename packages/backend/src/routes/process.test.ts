@@ -36,6 +36,23 @@ describe('Process Routes', () => {
     
     app = express();
     app.use(express.json());
+    
+    // Add CSRF protection middleware for testing
+    app.use((req, res, next) => {
+      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        const origin = req.get('Origin');
+        const allowedOrigins = ['http://localhost:3000'];
+        
+        if (!origin || !allowedOrigins.includes(origin)) {
+          return res.status(403).json({
+            error: 'CSRF protection: Invalid origin',
+            code: 'CSRF_PROTECTION'
+          });
+        }
+      }
+      next();
+    });
+    
     app.use('/api/process', processRouter);
   });
 
@@ -56,7 +73,7 @@ describe('Process Routes', () => {
       };
 
       const mockJob: ProcessingJob = {
-        id: '550e8400-e29b-41d4-a716-446655440000',
+        jobId: '550e8400-e29b-41d4-a716-446655440000',
         status: 'queued',
         createdAt: new Date(),
         themeId: 'theme-456',
@@ -72,6 +89,7 @@ describe('Process Routes', () => {
       // Act
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(requestBody)
         .expect(201);
 
@@ -97,6 +115,7 @@ describe('Process Routes', () => {
       // Act
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(invalidRequestBody)
         .expect(400);
 
@@ -119,6 +138,7 @@ describe('Process Routes', () => {
       // Act
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(requestBody)
         .expect(500);
 
@@ -136,7 +156,7 @@ describe('Process Routes', () => {
       };
 
       const mockJob: ProcessingJob = {
-        id: '550e8400-e29b-41d4-a716-446655440008',
+        jobId: '550e8400-e29b-41d4-a716-446655440008',
         status: 'queued',
         createdAt: new Date(),
         themeId: 'theme-456',
@@ -150,6 +170,7 @@ describe('Process Routes', () => {
       // Act
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(requestBody)
         .expect(201);
 
@@ -167,7 +188,7 @@ describe('Process Routes', () => {
       // Arrange
       const jobId = '550e8400-e29b-41d4-a716-446655440000';
       const mockJob: ProcessingJob = {
-        id: jobId,
+        jobId: jobId,
         status: 'queued',
         createdAt: new Date(),
         themeId: 'theme-456',
@@ -199,7 +220,7 @@ describe('Process Routes', () => {
       // Arrange
       const jobId = '550e8400-e29b-41d4-a716-446655440001';
       const mockJob: ProcessingJob = {
-        id: jobId,
+        jobId: jobId,
         status: 'completed',
         createdAt: new Date(),
         completedAt: new Date(),
@@ -232,7 +253,7 @@ describe('Process Routes', () => {
       // Arrange
       const jobId = '550e8400-e29b-41d4-a716-446655440002';
       const mockJob: ProcessingJob = {
-        id: jobId,
+        jobId: jobId,
         status: 'failed',
         createdAt: new Date(),
         completedAt: new Date(),
@@ -307,7 +328,7 @@ describe('Process Routes', () => {
       // Arrange
       const jobId = '550e8400-e29b-41d4-a716-446655440005';
       const mockJob: ProcessingJob = {
-        id: jobId,
+        jobId: jobId,
         status: 'queued',
         createdAt: new Date(),
         themeId: 'theme-456',
@@ -336,7 +357,7 @@ describe('Process Routes', () => {
       // Arrange
       const jobId = '550e8400-e29b-41d4-a716-446655440006';
       const mockJob: ProcessingJob = {
-        id: jobId,
+        jobId: jobId,
         status: 'processing',
         createdAt: new Date(),
         themeId: 'theme-456',

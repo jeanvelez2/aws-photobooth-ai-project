@@ -47,7 +47,7 @@ export class ImageOptimizationService {
       logger.info('Image optimization started', {
         originalWidth: metadata.width,
         originalHeight: metadata.height,
-        originalFormat: metadata.format,
+        originalFormat: metadata.format?.replace(/[^a-zA-Z0-9]/g, '') || 'unknown',
         originalSize,
         targetFormat: opts.format,
       });
@@ -130,12 +130,12 @@ export class ImageOptimizationService {
         compressionRatio: compressionRatio.toFixed(2),
         finalWidth: result.info.width,
         finalHeight: result.info.height,
-        finalFormat: result.info.format,
+        finalFormat: result.info.format?.replace(/[^a-zA-Z0-9]/g, '') || 'unknown',
       });
 
       return {
         buffer: result.data,
-        format: result.info.format || opts.format,
+        format: (result.info.format || opts.format)?.replace(/[^a-zA-Z0-9]/g, '') || 'unknown',
         width: result.info.width || 0,
         height: result.info.height || 0,
         size: result.info.size,
@@ -145,11 +145,11 @@ export class ImageOptimizationService {
     } catch (error) {
       const processingTime = Date.now() - startTime;
       logger.error('Image optimization failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message.replace(/[^a-zA-Z0-9\s]/g, '') : 'Unknown error',
         processingTime,
         options: opts,
       });
-      throw new Error(`Image optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error('Image optimization failed');
     }
   }
 

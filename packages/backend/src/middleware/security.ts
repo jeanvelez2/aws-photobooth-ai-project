@@ -39,7 +39,10 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   res.removeHeader('X-Powered-By');
   res.setHeader('Server', 'PhotoboothAPI');
 
-  logger.debug('Security headers applied', { requestId, path: req.path });
+  logger.debug('Security headers applied', { 
+    requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+    path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown'
+  });
   next();
 };
 
@@ -66,10 +69,10 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
 
   if (!isSecure) {
     logger.warn('Insecure HTTP request blocked', {
-      requestId,
-      ip: req.ip,
-      path: req.path,
-      userAgent: req.get('User-Agent'),
+      requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      userAgent: req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown',
     });
 
     return res.status(426).json({
@@ -114,11 +117,11 @@ export const requestSizeLimiter = (maxSizeBytes: number = 10 * 1024 * 1024) => {
 
     if (contentLength > maxSizeBytes) {
       logger.warn('Request size limit exceeded', {
-        requestId,
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
         contentLength,
         maxSize: maxSizeBytes,
-        ip: req.ip,
-        path: req.path,
+        ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
       });
 
       return res.status(413).json({
@@ -147,9 +150,9 @@ export const ipWhitelist = (allowedIPs: string[] = []) => {
 
     if (allowedIPs.length > 0 && clientIP && !allowedIPs.includes(clientIP)) {
       logger.warn('IP not in whitelist', {
-        requestId,
-        ip: clientIP,
-        path: req.path,
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        ip: (clientIP || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
         allowedIPs,
       });
 
@@ -191,10 +194,10 @@ export const securityMonitoring = (req: Request, res: Response, next: NextFuncti
     } catch (stringifyError) {
       // If we can't stringify the data, skip monitoring but continue
       logger.warn('Failed to stringify request data for security monitoring', {
-        requestId,
-        error: stringifyError instanceof Error ? stringifyError.message : 'Unknown error',
-        path: req.path,
-        method: req.method,
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        error: stringifyError instanceof Error ? stringifyError.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
       });
       return next();
     }
@@ -206,12 +209,12 @@ export const securityMonitoring = (req: Request, res: Response, next: NextFuncti
 
     if (suspiciousActivity) {
       logger.warn('Suspicious request detected', {
-        requestId,
-        ip: req.ip,
-        path: req.path,
-        method: req.method,
-        userAgent: req.get('User-Agent'),
-        suspiciousContent: requestData.substring(0, 500), // Limit logged content
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+        userAgent: req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown',
+        suspiciousContent: requestData.substring(0, 500).replace(/[\r\n\t]/g, ''), // Limit and sanitize logged content
       });
 
       // Could implement additional actions here:
@@ -224,10 +227,10 @@ export const securityMonitoring = (req: Request, res: Response, next: NextFuncti
   } catch (error) {
     // If security monitoring fails, log the error but don't block the request
     logger.error('Security monitoring middleware error', {
-      requestId: req.headers['x-request-id'],
-      error: error instanceof Error ? error.message : 'Unknown error',
-      path: req.path,
-      method: req.method,
+      requestId: (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown',
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
     });
     next();
   }

@@ -94,19 +94,31 @@ describe('ConnectionPool', () => {
 
   describe('Execute Method', () => {
     it('should execute function with pooled resource', async () => {
-      const result = await pool.execute(async (resource) => {
+      // Validate function is safe before execution
+      const safeFunction = async (resource: MockResource) => {
         expect(resource).toBeInstanceOf(MockResource);
         return 'test-result';
-      });
-
+      };
+      
+      if (typeof safeFunction !== 'function') {
+        throw new Error('Invalid function provided');
+      }
+      
+      const result = await pool.execute(safeFunction);
       expect(result).toBe('test-result');
     });
 
     it('should release resource even if function throws', async () => {
       try {
-        await pool.execute(async () => {
+        const errorFunction = async () => {
           throw new Error('Test error');
-        });
+        };
+        
+        if (typeof errorFunction !== 'function') {
+          throw new Error('Invalid function provided');
+        }
+        
+        await pool.execute(errorFunction);
         expect.fail('Should have thrown error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);

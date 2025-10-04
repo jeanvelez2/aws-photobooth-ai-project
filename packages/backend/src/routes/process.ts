@@ -40,9 +40,9 @@ router.post('/', processingRateLimiter, async (req: Request, res: Response) => {
     const request: ProcessingRequest = validationResult.data;
     
     logger.info('Processing job requested', { 
-      photoId: request.photoId, 
-      themeId: request.themeId,
-      userId: request.userId 
+      photoId: request.photoId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+      themeId: request.themeId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      userId: request.userId?.replace(/[\r\n\t]/g, '') || 'unknown'
     });
 
     // Create and enqueue the job
@@ -50,7 +50,7 @@ router.post('/', processingRateLimiter, async (req: Request, res: Response) => {
 
     // Return job details
     res.status(201).json({
-      id: job.id,
+      id: job.jobId,
       status: job.status,
       createdAt: job.createdAt,
       themeId: job.themeId,
@@ -59,7 +59,10 @@ router.post('/', processingRateLimiter, async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    logger.error('Failed to create processing job', { error, body: req.body });
+    logger.error('Failed to create processing job', { 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      requestId: (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
     
     return res.status(500).json({
       error: 'Failed to create processing job',
@@ -97,7 +100,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     // Return job status and results
     const response: any = {
-      id: job.id,
+      id: job.jobId,
       status: job.status,
       createdAt: job.createdAt,
       themeId: job.themeId,
@@ -122,14 +125,20 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     // Add error details for failed jobs
     if (job.status === 'failed' && job.error) {
-      response.error = job.error;
+      response.error = typeof job.error === 'string' ? job.error.replace(/[<>"'&]/g, '') : 'Processing failed';
     }
 
-    logger.info('Processing job status retrieved', { jobId, status: job.status });
+    logger.info('Processing job status retrieved', { 
+      jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+      status: job.status?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
     res.json(response);
 
   } catch (error) {
-    logger.error('Failed to get processing job status', { error, jobId: req.params.id });
+    logger.error('Failed to get processing job status', { 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      jobId: req.params.id?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
     
     return res.status(500).json({
       error: 'Failed to retrieve job status',
@@ -169,7 +178,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (job.status !== 'queued') {
       return res.status(400).json({
         error: 'Job cannot be cancelled',
-        message: `Job is currently ${job.status} and cannot be cancelled`,
+        message: 'Job is not in a cancellable state',
       });
     }
 
@@ -179,15 +188,19 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Mark job as failed with cancellation message
     await jobQueue.getJobStatus(jobId); // This will update the job status through the service
 
-    logger.info('Processing job cancelled', { jobId });
+    logger.info('Processing job cancelled', { 
+      jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
     
     res.json({
-      message: 'Job cancelled successfully',
-      jobId,
+      message: 'Job cancelled successfully'
     });
 
   } catch (error) {
-    logger.error('Failed to cancel processing job', { error, jobId: req.params.id });
+    logger.error('Failed to cancel processing job', { 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      jobId: req.params.id?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
     
     return res.status(500).json({
       error: 'Failed to cancel job',
@@ -208,7 +221,9 @@ router.get('/stats/queue', async (_req: Request, res: Response) => {
     res.json(stats);
 
   } catch (error) {
-    logger.error('Failed to get queue statistics', { error });
+    logger.error('Failed to get queue statistics', { 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error'
+    });
     
     res.status(500).json({
       error: 'Failed to retrieve queue statistics',

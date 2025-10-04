@@ -35,7 +35,7 @@ export default function CameraCaptureWithUpload({
       const deviceList = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = deviceList.filter(device => device.kind === 'videoinput');
       setDevices(videoDevices);
-      console.log('CameraCapture: Found devices:', videoDevices);
+      console.log('CameraCapture: Found devices:', videoDevices.map(d => ({ deviceId: d.deviceId, label: d.label?.replace(/[\r\n\t]/g, '') || 'Unknown' })));
     } catch (error) {
       console.error('Error getting camera devices:', error);
       dispatch({ type: 'SET_CAMERA_ERROR', payload: 'Failed to get camera devices' });
@@ -45,7 +45,7 @@ export default function CameraCaptureWithUpload({
   // Start camera stream
   const startCamera = useCallback(async (deviceId?: string) => {
     try {
-      console.log('CameraCapture: Starting camera with deviceId:', deviceId);
+      console.log('CameraCapture: Starting camera with deviceId:', deviceId?.replace(/[\r\n\t]/g, '') || 'default');
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_CAMERA_ERROR', payload: null });
 
@@ -71,7 +71,7 @@ export default function CameraCaptureWithUpload({
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('CameraCapture: Got camera stream:', stream);
+      console.log('CameraCapture: Got camera stream - active tracks:', stream.getTracks().length);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -163,18 +163,18 @@ export default function CameraCaptureWithUpload({
 
       // Auto-upload if enabled
       if (autoUpload) {
-        console.log('Auto-uploading captured photo...');
+        console.log('Auto-uploading captured photo');
         const uploadResult = await uploadCameraCapture(blob, {
           onProgress: (progress) => {
-            console.log(`Upload progress: ${progress.percentage}%`);
+            console.log('Upload progress:', Math.round(progress.percentage || 0) + '%');
           }
         });
 
         if (uploadResult.success && uploadResult.fileUrl) {
-          console.log('Photo uploaded successfully:', uploadResult.fileUrl);
+          console.log('Photo uploaded successfully');
           onPhotoUploaded(uploadResult.fileUrl, photo);
         } else {
-          console.error('Auto-upload failed:', uploadResult.error);
+          console.error('Auto-upload failed:', uploadResult.error?.replace(/[\r\n\t]/g, '') || 'Unknown error');
           dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });
         }
       }
@@ -196,18 +196,18 @@ export default function CameraCaptureWithUpload({
       return;
     }
 
-    console.log('Uploading current photo...');
+    console.log('Uploading current photo');
     const uploadResult = await uploadCameraCapture(currentPhoto.blob, {
       onProgress: (progress) => {
-        console.log(`Upload progress: ${progress.percentage}%`);
+        console.log('Upload progress:', Math.round(progress.percentage || 0) + '%');
       }
     });
 
     if (uploadResult.success && uploadResult.fileUrl) {
-      console.log('Photo uploaded successfully:', uploadResult.fileUrl);
+      console.log('Photo uploaded successfully');
       onPhotoUploaded(uploadResult.fileUrl, currentPhoto);
     } else {
-      console.error('Upload failed:', uploadResult.error);
+      console.error('Upload failed:', uploadResult.error?.replace(/[\r\n\t]/g, '') || 'Unknown error');
       dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });
     }
   }, [state.app.currentPhoto, uploadCameraCapture, onPhotoUploaded, dispatch]);
@@ -221,7 +221,7 @@ export default function CameraCaptureWithUpload({
   // Initialize camera on mount
   useEffect(() => {
     if (!isInitializedRef.current) {
-      console.log('CameraCapture: Initializing...');
+      console.log('CameraCapture: Initializing');
       isInitializedRef.current = true;
       getDevices();
     }
@@ -244,7 +244,7 @@ export default function CameraCaptureWithUpload({
 
   // Enable camera access
   const enableCamera = async () => {
-    console.log('CameraCapture: Enabling camera...');
+    console.log('CameraCapture: Enabling camera');
     dispatch({ type: 'SET_CAMERA_ERROR', payload: null });
     dispatch({ type: 'SET_LOADING', payload: true });
     
@@ -256,7 +256,7 @@ export default function CameraCaptureWithUpload({
         } 
       });
       
-      console.log('CameraCapture: Got stream:', stream);
+      console.log('CameraCapture: Got stream - active tracks:', stream.getTracks().length);
       
       dispatch({ type: 'SET_CAMERA_STREAM', payload: stream });
       dispatch({ type: 'SET_CAMERA_ACTIVE', payload: true });
@@ -265,9 +265,9 @@ export default function CameraCaptureWithUpload({
       const setVideoStream = (retryCount = 0) => {
         if (videoRef.current) {
           console.log('CameraCapture: Setting video srcObject', {
-            videoElement: videoRef.current,
-            isConnected: videoRef.current.isConnected,
-            readyState: videoRef.current.readyState,
+            hasVideoElement: !!videoRef.current,
+            isConnected: videoRef.current?.isConnected || false,
+            readyState: videoRef.current?.readyState || 0,
             retryCount
           });
           
@@ -341,7 +341,7 @@ export default function CameraCaptureWithUpload({
               className="w-full h-full object-cover"
               onLoadedData={() => console.log('Video loaded data event')}
               onPlay={() => console.log('Video play event')}
-              onError={(e) => console.error('Video error event:', e)}
+              onError={(e) => console.error('Video error event:', e?.type || 'unknown')}
             />
             
             {/* Camera overlay UI */}

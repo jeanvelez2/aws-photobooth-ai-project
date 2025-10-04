@@ -79,10 +79,12 @@ export class PhotoboothStack extends cdk.Stack {
   private createS3Bucket(): s3.Bucket {
     const bucket = new s3.Bucket(this, 'PhotoboothBucket', {
       bucketName: `ai-photobooth-${this.environmentConfig.environment}-${this.account}`,
-      versioned: false,
+      versioned: true, // Enable versioning for data protection
       publicReadAccess: false,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true, // Enforce SSL for all requests
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
       cors: [
         {
           allowedMethods: [
@@ -162,6 +164,7 @@ export class PhotoboothStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl', // Enable TTL for automatic cleanup
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true,
       },
@@ -507,12 +510,27 @@ export class PhotoboothStack extends cdk.Stack {
       },
     });
 
-    // Create HTTP listener (will redirect to HTTPS in production)
+    // Create HTTP listener that redirects to HTTPS
     alb.addListener('HttpListener', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultAction: elbv2.ListenerAction.forward([targetGroup]),
+      defaultAction: elbv2.ListenerAction.redirect({
+        protocol: 'HTTPS',
+        port: '443',
+        permanent: true,
+      }),
     });
+
+    // Create HTTPS listener (requires SSL certificate in production)
+    // For development, we'll use HTTP internally but this structure is ready for SSL
+    if (this.environmentConfig.environment === 'production') {
+      alb.addListener('HttpsListener', {
+        port: 443,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
+        defaultAction: elbv2.ListenerAction.forward([targetGroup]),
+        // certificateArns: [props.sslCertificateArn], // Add SSL certificate ARN
+      });
+    }
 
     return { loadBalancer: alb, targetGroup };
   }
@@ -523,7 +541,7 @@ export class PhotoboothStack extends cdk.Stack {
 
     // Create ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(this.loadBalancer.loadBalancerDnsName, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // Will be HTTPS in production
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
       connectionAttempts: 3,
       connectionTimeout: cdk.Duration.seconds(10),
       readTimeout: cdk.Duration.seconds(30),

@@ -90,11 +90,22 @@ export async function batchProcessImages(
         error: error instanceof Error ? error.message : error,
       });
       
+      // Sanitize error message to prevent XSS
+      const escapeMap: { [key: string]: string } = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '&': '&amp;'
+      };
+      const sanitizedError = error instanceof Error ? 
+        error.message.replace(/[<>"'&]/g, (match) => escapeMap[match] || match) : 'Unknown error';
+      
       results.push({
         filename,
         processedImage: Buffer.alloc(0),
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: sanitizedError,
       });
     }
   }
@@ -209,10 +220,17 @@ export async function processWithErrorHandling(
         break;
     }
     
+    // Sanitize error messages to prevent XSS
+    const escapeMap: { [key: string]: string } = {
+      '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;'
+    };
+    const sanitizedError = userFriendlyError.replace(/[<>"'&]/g, (match) => escapeMap[match] || match);
+    const sanitizedErrorType = errorType.replace(/[<>"'&]/g, (match) => escapeMap[match] || match);
+    
     return {
       success: false,
-      error: userFriendlyError,
-      errorType,
+      error: sanitizedError,
+      errorType: sanitizedErrorType,
     };
   }
 }
@@ -249,6 +267,13 @@ export function createProcessingRouteHandler() {
     try {
       const { imageBuffer, themeId } = req.body;
       
+      // Sanitize themeId to prevent XSS
+      const escapeMap: { [key: string]: string } = {
+        '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;'
+      };
+      const sanitizedThemeId = typeof themeId === 'string' ? 
+        themeId.replace(/[<>"'&]/g, (match) => escapeMap[match] || match) : 'unknown';
+      
       // In a real implementation, you would fetch the theme variant from database
       const themeVariant = exampleThemeVariant; // This would come from your theme service
       
@@ -258,13 +283,27 @@ export function createProcessingRouteHandler() {
         res.set('Content-Type', 'image/jpeg');
         res.send(result.result);
       } else {
+        // Error messages are already sanitized in processWithErrorHandling
         res.status(400).json({
           error: result.error,
           errorType: result.errorType,
         });
       }
     } catch (error) {
-      logger.error('Route handler error', { error });
+      // Sanitize error for logging to prevent XSS in logs
+      const sanitizedLogError = error instanceof Error ? 
+        error.message.replace(/[<>"'&]/g, (match) => {
+          const escapeMap: { [key: string]: string } = {
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;',
+            '&': '&amp;'
+          };
+          return escapeMap[match] || match;
+        }) : 'Unknown error';
+      
+      logger.error('Route handler error', { error: sanitizedLogError });
       res.status(500).json({
         error: 'Internal server error',
         errorType: 'INTERNAL_ERROR',

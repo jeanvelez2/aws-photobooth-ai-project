@@ -1,19 +1,3 @@
-export interface ProcessingJob {
-  jobId: string;
-  userId?: string | undefined;
-  originalImageUrl: string;
-  themeId: string;
-  variantId?: string | undefined;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
-  resultImageUrl?: string | undefined;
-  error?: string | undefined;
-  createdAt: Date;
-  completedAt?: Date | undefined;
-  processingTimeMs?: number | undefined;
-  retryCount: number;
-  outputFormat: 'jpeg' | 'png';
-}
-
 export interface ThemeTemplate {
   id: string;
   name: string;

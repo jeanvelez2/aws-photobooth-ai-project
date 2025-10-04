@@ -85,26 +85,34 @@ export const errorHandler = (
 ) => {
   const requestId = req.headers['x-request-id'] as string || generateRequestId();
   
-  // Enhanced error logging
+  // Enhanced error logging with log injection protection
+  const sanitizedRequestId = requestId?.replace(/[\r\n\t]/g, '') || 'unknown';
+  const sanitizedErrorMessage = err.message?.replace(/[\r\n\t]/g, '') || 'Unknown error';
+  const sanitizedPath = req.path?.replace(/[\r\n\t]/g, '') || 'unknown';
+  const sanitizedUserAgent = req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown';
+  const sanitizedErrorCode = err.code?.replace(/[\r\n\t]/g, '') || undefined;
+  const sanitizedStack = err.stack?.replace(/[\r\n\t]/g, ' ') || undefined;
+  const sanitizedContext = sanitizeContext(err.context);
+  
   const errorLog = {
-    requestId,
+    requestId: sanitizedRequestId,
     error: {
-      message: err.message,
-      stack: err.stack,
+      message: sanitizedErrorMessage,
+      stack: sanitizedStack,
       statusCode: err.statusCode,
-      code: err.code,
+      code: sanitizedErrorCode,
       type: err.type,
       severity: err.severity || 'medium',
       isOperational: err.isOperational,
-      context: err.context,
+      context: sanitizedContext,
     },
     request: {
-      method: req.method,
-      path: req.path,
-      query: req.query,
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+      path: sanitizedPath,
+      query: sanitizeQueryParams(req.query),
       body: sanitizeRequestBody(req.body),
       ip: req.ip,
-      userAgent: req.get('User-Agent'),
+      userAgent: sanitizedUserAgent,
       timestamp: new Date().toISOString(),
     },
   };
@@ -120,17 +128,26 @@ export const errorHandler = (
 
   // Send to monitoring service (if configured)
   if (process.env.ERROR_MONITORING_ENDPOINT) {
-    sendToMonitoring(errorLog).catch(console.error);
+    sendToMonitoring(errorLog).catch((monitoringError) => {
+      const sanitizedMonitoringError = monitoringError instanceof Error ? 
+        monitoringError.message.replace(/[\r\n\t]/g, '') : 'Unknown monitoring error';
+      console.error('Monitoring service error:', sanitizedMonitoringError);
+    });
   }
 
   // Determine status code
   const statusCode = err.statusCode || 500;
   
-  // Prepare error response
+  // Prepare error response with XSS protection
+  const escapeMap: { [key: string]: string } = {
+    '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;'
+  };
+  const sanitizedMessage = getPublicErrorMessage(err).replace(/[<>"'&]/g, (match) => escapeMap[match] || match);
+  
   const errorResponse: any = {
     error: true,
-    message: getPublicErrorMessage(err),
-    requestId,
+    message: sanitizedMessage,
+    requestId: sanitizedRequestId,
     timestamp: new Date().toISOString(),
   };
 
@@ -143,18 +160,19 @@ export const errorHandler = (
 
   // Add error code if available
   if (err.code) {
-    errorResponse.code = err.code;
+    const sanitizedCode = err.code.replace(/[<>"'&]/g, (match) => escapeMap[match] || match);
+    errorResponse.code = sanitizedCode;
   }
 
   // Include additional details in development
   if (process.env.NODE_ENV === 'development') {
-    errorResponse.stack = err.stack;
-    errorResponse.context = err.context;
+    errorResponse.stack = sanitizedStack;
+    errorResponse.context = sanitizedContext;
   }
 
   // Set appropriate headers
   res.set({
-    'X-Request-ID': requestId,
+    'X-Request-ID': sanitizedRequestId,
     'X-Error-Type': err.type || 'INTERNAL_ERROR',
   });
 
@@ -165,9 +183,9 @@ export const errorHandler = (
  * Get public-facing error message (hide sensitive details)
  */
 function getPublicErrorMessage(err: AppError): string {
-  // For operational errors, return the original message
+  // For operational errors, return the sanitized message
   if (err.isOperational) {
-    return err.message;
+    return err.message?.replace(/[\r\n\t]/g, '') || 'Unknown error';
   }
 
   // For non-operational errors, return generic message
@@ -204,6 +222,47 @@ function isRetryableError(err: AppError): boolean {
 }
 
 /**
+ * Sanitize context data for logging (remove newlines)
+ */
+function sanitizeContext(context: any): any {
+  if (!context || typeof context !== 'object') {
+    return context;
+  }
+
+  const sanitized: any = {};
+  for (const [key, value] of Object.entries(context)) {
+    const sanitizedKey = key.replace(/[\r\n\t]/g, '');
+    if (typeof value === 'string') {
+      sanitized[sanitizedKey] = value.replace(/[\r\n\t]/g, '');
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[sanitizedKey] = sanitizeContext(value);
+    } else {
+      sanitized[sanitizedKey] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Sanitize query parameters for logging (remove newlines)
+ */
+function sanitizeQueryParams(query: any): any {
+  if (!query || typeof query !== 'object') {
+    return query;
+  }
+
+  const sanitized: any = {};
+  for (const [key, value] of Object.entries(query)) {
+    const sanitizedKey = key.replace(/[\r\n\t]/g, '');
+    const sanitizedValue = typeof value === 'string' ? value.replace(/[\r\n\t]/g, '') : value;
+    sanitized[sanitizedKey] = sanitizedValue;
+  }
+  
+  return sanitized;
+}
+
+/**
  * Sanitize request body for logging (remove sensitive data)
  */
 function sanitizeRequestBody(body: any): any {
@@ -228,7 +287,21 @@ function sanitizeRequestBody(body: any): any {
  */
 async function sendToMonitoring(errorLog: any): Promise<void> {
   try {
-    await fetch(process.env.ERROR_MONITORING_ENDPOINT!, {
+    const endpoint = process.env.ERROR_MONITORING_ENDPOINT;
+    
+    // Validate endpoint URL to prevent SSRF
+    if (!endpoint || !endpoint.startsWith('https://')) {
+      throw new Error('Invalid monitoring endpoint');
+    }
+    
+    // Only allow specific trusted domains
+    const allowedDomains = ['monitoring.example.com', 'logs.company.com'];
+    const url = new URL(endpoint);
+    if (!allowedDomains.includes(url.hostname)) {
+      throw new Error('Monitoring endpoint not in allowlist');
+    }
+    
+    await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -237,7 +310,11 @@ async function sendToMonitoring(errorLog: any): Promise<void> {
       body: JSON.stringify(errorLog),
     });
   } catch (error) {
-    logger.error('Failed to send error to monitoring service', { error });
+    // Sanitize error message to prevent log injection
+    const sanitizedError = error instanceof Error ? 
+      error.message.replace(/[\r\n\t]/g, '') : 'Unknown error';
+    
+    logger.error('Failed to send error to monitoring service', { error: sanitizedError });
   }
 }
 

@@ -82,7 +82,7 @@ describe('Shared Types', () => {
 
   it('should have correct ProcessingJob interface structure', () => {
     const job: ProcessingJob = {
-      id: 'job-123',
+      jobId: 'job-123',
       originalImageUrl: 's3://bucket/original.jpg',
       themeId: 'barbarian',
       status: 'processing',

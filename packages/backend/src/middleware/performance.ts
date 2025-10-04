@@ -23,6 +23,14 @@ export function performanceTracking(req: PerformanceRequest, res: Response, next
   
   // Start tracking the operation
   performanceMonitoringService.startOperation(performanceId, operationType);
+  
+  logger.debug('Performance tracking started', {
+    performanceId,
+    operationType,
+    method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+    path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+    timestamp: new Date().toISOString()
+  });
 
   // Track response
   const originalSend = res.send;
@@ -31,8 +39,8 @@ export function performanceTracking(req: PerformanceRequest, res: Response, next
     
     // Log performance metrics
     logger.info('Request completed', {
-      method: req.method,
-      path: req.path,
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
       statusCode: res.statusCode,
       duration,
       operationType,
@@ -61,8 +69,8 @@ export function loadBalancing(req: Request, res: Response, next: NextFunction): 
     // For non-critical endpoints, return 503 Service Unavailable
     if (isNonCriticalEndpoint(req.path)) {
       logger.warn('Rejecting non-critical request due to high system load', {
-        path: req.path,
-        method: req.method,
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
       });
       
       res.status(503).json({
@@ -74,8 +82,8 @@ export function loadBalancing(req: Request, res: Response, next: NextFunction): 
     // For critical endpoints, add warning header but continue
     res.set('X-System-Load', 'high');
     logger.warn('Processing request under high system load', {
-      path: req.path,
-      method: req.method,
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
     });
   }
 
@@ -123,7 +131,10 @@ export function performanceStats(req: Request, res: Response): void {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('Failed to get performance stats', { error });
+    const sanitizedError = error instanceof Error ? 
+      error.message.replace(/[\r\n\t<>"'&]/g, '') : 'Unknown error';
+    
+    logger.error('Failed to get performance stats', { error: sanitizedError });
     res.status(500).json({
       error: 'Failed to retrieve performance statistics',
     });
@@ -178,9 +189,9 @@ export function performanceErrorHandler(
   // Check if error is performance-related
   if (error.message.includes('timeout') || error.message.includes('ECONNRESET')) {
     logger.error('Performance-related error', {
-      error: error.message,
-      path: req.path,
-      method: req.method,
+      error: error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
       performanceId: req.performanceId,
     });
     

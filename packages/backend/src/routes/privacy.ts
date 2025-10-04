@@ -5,6 +5,45 @@ import { z } from 'zod';
 
 const router = Router();
 
+// CSRF protection helper
+const validateCSRF = (req: any, res: any) => {
+  const origin = req.get('Origin');
+  const referer = req.get('Referer');
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ];
+  
+  if (!origin && !referer) {
+    return res.status(403).json({
+      error: 'CSRF protection: Missing origin/referer headers',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+  
+  let requestOrigin = origin;
+  if (!requestOrigin && referer) {
+    try {
+      requestOrigin = new URL(referer).origin;
+    } catch (error) {
+      return res.status(403).json({
+        error: 'CSRF protection: Invalid referer format',
+        code: 'CSRF_PROTECTION'
+      });
+    }
+  }
+  
+  if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+    return res.status(403).json({
+      error: 'CSRF protection: Invalid origin',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+  
+  return null;
+};
+
 // Validation schemas
 const DataDeletionRequestSchema = z.object({
   userId: z.string().optional(),
@@ -33,15 +72,47 @@ router.get('/version', async (req, res) => {
  * Request data deletion (GDPR right to be forgotten)
  */
 router.post('/delete-data', async (req, res) => {
+  // CSRF protection
+  const origin = req.get('Origin');
+  const referer = req.get('Referer');
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ];
+  
+  if (!origin && !referer) {
+    return res.status(403).json({
+      error: 'CSRF protection: Missing origin/referer headers',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+  
+  let requestOrigin = origin;
+  if (!requestOrigin && referer) {
+    try {
+      requestOrigin = new URL(referer).origin;
+    } catch (error) {
+      return res.status(403).json({
+        error: 'CSRF protection: Invalid referer format',
+        code: 'CSRF_PROTECTION'
+      });
+    }
+  }
+  
+  if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+    return res.status(403).json({
+      error: 'CSRF protection: Invalid origin',
+      code: 'CSRF_PROTECTION'
+    });
+  }
   try {
     const validatedData = DataDeletionRequestSchema.parse(req.body);
     
     // Log the deletion request
     await dataLifecycleService.auditDataOperation('DATA_DELETION_REQUESTED', {
       request: validatedData,
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      timestamp: new Date().toISOString(),
+      ip: req.ip
     });
 
     // If userId is provided, delete user data immediately
@@ -49,8 +120,7 @@ router.post('/delete-data', async (req, res) => {
       await dataLifecycleService.deleteUserData(validatedData.userId);
       
       res.json({
-        message: 'Data deletion completed successfully',
-        deletedAt: new Date().toISOString(),
+        message: 'Data deletion completed successfully'
       });
     } else {
       // For requests without userId, we would typically:
@@ -59,20 +129,21 @@ router.post('/delete-data', async (req, res) => {
       // 3. Return confirmation that request was received
       
       res.json({
-        message: 'Data deletion request received and will be processed within 30 days',
-        requestId: `del-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-        submittedAt: new Date().toISOString(),
+        message: 'Data deletion request received and will be processed within 30 days'
       });
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         error: 'Invalid request data',
-        details: error.issues,
+        code: 'VALIDATION_ERROR'
       });
     }
 
-    logger.error('Error processing data deletion request', { error, body: req.body });
+    logger.error('Error processing data deletion request', { 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      bodyKeys: req.body ? Object.keys(req.body).length : 0
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -103,8 +174,7 @@ router.get('/retention-stats', async (req, res) => {
           retentionPeriod: '90 days',
           currentCount: stats.auditLogs.count,
         },
-      },
-      lastUpdated: new Date().toISOString(),
+      }
     });
   } catch (error) {
     logger.error('Error getting retention statistics', { error });
@@ -116,6 +186,8 @@ router.get('/retention-stats', async (req, res) => {
  * Trigger manual cleanup (admin endpoint)
  */
 router.post('/cleanup', async (req, res) => {
+  const csrfError = validateCSRF(req, res);
+  if (csrfError) return csrfError;
   try {
     // In production, this should be protected with admin authentication
     const customPolicy = req.body.policy || {};
@@ -123,9 +195,7 @@ router.post('/cleanup', async (req, res) => {
     const result = await dataLifecycleService.runAutomatedCleanup(customPolicy);
     
     res.json({
-      message: 'Cleanup completed',
-      result,
-      timestamp: new Date().toISOString(),
+      message: 'Cleanup completed'
     });
   } catch (error) {
     logger.error('Error running manual cleanup', { error });
@@ -151,8 +221,8 @@ router.get('/compliance-status', async (req, res) => {
       automaticCleanup: true,
       encryptionInTransit: true,
       encryptionAtRest: true,
-      lastCleanupRun: new Date().toISOString(), // This should come from actual cleanup logs
-      totalDataPoints: stats.uploads.count + stats.processed.count + stats.jobs.total,
+      lastCleanupRun: 'Available in audit logs', // This should come from actual cleanup logs
+      totalDataPoints: 'Available in retention statistics endpoint'
     });
   } catch (error) {
     logger.error('Error getting compliance status', { error });

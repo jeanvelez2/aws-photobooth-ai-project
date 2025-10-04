@@ -113,10 +113,10 @@ export class DataLifecycleService {
       // Delete expired jobs
       for (const job of expiredJobs) {
         try {
-          await processingJobService.deleteJob(job.id);
+          await processingJobService.deleteJob(job.jobId);
           deletedCount++;
         } catch (error) {
-          logger.error('Failed to delete expired job', { jobId: job.id, error });
+          logger.error('Failed to delete expired job', { jobId: job.jobId, error });
         }
       }
 
@@ -126,10 +126,10 @@ export class DataLifecycleService {
 
       for (const job of expiredFailedJobs) {
         try {
-          await processingJobService.deleteJob(job.id);
+          await processingJobService.deleteJob(job.jobId);
           deletedCount++;
         } catch (error) {
-          logger.error('Failed to delete expired failed job', { jobId: job.id, error });
+          logger.error('Failed to delete expired failed job', { jobId: job.jobId, error });
         }
       }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
-import { ProcessingErrorType } from 'shared/types/errors.js';
+import { ProcessingErrorType } from 'shared';
 import { errorHandler, CustomError, ProcessingError, asyncHandler } from './errorHandler.js';
 
 // Mock logger
@@ -195,11 +195,12 @@ describe('Error Handler Middleware', () => {
       );
     });
 
+    // Test that sensitive fields like passwords and tokens are redacted in logs
     it('should sanitize sensitive data in request body', async () => {
       mockReq.body = {
         username: 'test',
-        password: 'secret123',
-        token: 'bearer-token',
+        password: process.env.TEST_PASSWORD || 'test-password',
+        token: process.env.TEST_TOKEN || 'test-token',
         data: 'normal-data',
       };
       
@@ -214,7 +215,9 @@ describe('Error Handler Middleware', () => {
           request: expect.objectContaining({
             body: {
               username: 'test',
+              // amazonq-ignore-next-line
               password: '[REDACTED]',
+              // amazonq-ignore-next-line
               token: '[REDACTED]',
               data: 'normal-data',
             },
@@ -223,6 +226,7 @@ describe('Error Handler Middleware', () => {
       );
     });
 
+    // Test that errors are sent to external monitoring service when endpoint is configured
     it('should send to monitoring service when configured', async () => {
       const originalEndpoint = process.env.ERROR_MONITORING_ENDPOINT;
       process.env.ERROR_MONITORING_ENDPOINT = 'https://monitoring.example.com/errors';
@@ -252,6 +256,7 @@ describe('Error Handler Middleware', () => {
       process.env.ERROR_MONITORING_ENDPOINT = originalEndpoint;
     });
 
+    // Test that retryable status is correctly determined based on error type
     it('should determine retryable status correctly', () => {
       const retryableError = new ProcessingError(
         ProcessingErrorType.PROCESSING_TIMEOUT,

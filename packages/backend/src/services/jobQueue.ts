@@ -27,14 +27,20 @@ export class JobQueue {
   async enqueueJob(request: ProcessingRequest): Promise<ProcessingJob> {
     try {
       const job = await processingJobService.createJob(request);
-      logger.info('Job enqueued', { jobId: job.id, themeId: request.themeId });
+      logger.info('Job enqueued', { 
+        jobId: job.jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+        themeId: request.themeId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
       
       // Immediately start processing (in a real system, this would be handled by a worker)
-      this.processJobAsync(job.id);
+      this.processJobAsync(job.jobId);
       
       return job;
     } catch (error) {
-      logger.error('Failed to enqueue job', { error, request });
+      logger.error('Failed to enqueue job', { 
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+        themeId: request.themeId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
       throw error;
     }
   }
@@ -58,7 +64,10 @@ export class JobQueue {
       await this.simulateProcessing(jobId);
       
     } catch (error) {
-      logger.error('Job processing failed', { error, jobId });
+      logger.error('Job processing failed', { 
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+        jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
       await this.handleJobFailure(jobId, error as Error);
     }
   }
@@ -84,10 +93,16 @@ export class JobQueue {
             processingTimeMs,
           });
           
-          logger.info('Job completed successfully (demo mode)', { jobId, processingTimeMs });
+          logger.info('Job completed successfully (demo mode)', { 
+            jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+            processingTimeMs
+          });
           resolve();
         } catch (error) {
-          logger.warn('Job completion error ignored in demo mode', { error, jobId });
+          logger.warn('Job completion error ignored in demo mode', { 
+            error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+            jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+          });
           resolve(); // Always resolve in demo mode
         }
       }, processingTime);
@@ -101,7 +116,9 @@ export class JobQueue {
     try {
       const job = await processingJobService.getJob(jobId);
       if (!job) {
-        logger.error('Job not found for failure handling', { jobId });
+        logger.error('Job not found for failure handling', { 
+          jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+        });
         return;
       }
 
@@ -112,10 +129,10 @@ export class JobQueue {
         const delay = this.calculateRetryDelay(newRetryCount);
         
         logger.info('Scheduling job retry', { 
-          jobId, 
+          jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
           retryCount: newRetryCount, 
           delayMs: delay,
-          error: error.message 
+          error: error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error'
         });
         
         // Update status back to queued for retry
@@ -131,10 +148,10 @@ export class JobQueue {
       } else {
         // Max retries exceeded, mark as failed
         logger.error('Job failed after max retries', { 
-          jobId, 
+          jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
           retryCount: newRetryCount, 
           maxRetries: this.maxRetries,
-          error: error.message 
+          error: error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error'
         });
         
         await processingJobService.updateJobStatus(jobId, 'failed', {
@@ -143,9 +160,9 @@ export class JobQueue {
       }
     } catch (retryError) {
       logger.error('Failed to handle job failure', { 
-        error: retryError, 
-        jobId, 
-        originalError: error.message 
+        error: retryError instanceof Error ? retryError.message.replace(/[\r\n\t]/g, '') : 'Unknown error', 
+        jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+        originalError: error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error'
       });
     }
   }
@@ -173,7 +190,9 @@ export class JobQueue {
     if (timeoutId) {
       clearTimeout(timeoutId);
       this.retryTimeouts.delete(jobId);
-      logger.info('Job retry cancelled', { jobId });
+      logger.info('Job retry cancelled', { 
+        jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
     }
   }
 
@@ -186,12 +205,12 @@ export class JobQueue {
       
       for (const job of stuckJobs) {
         logger.warn('Cleaning up stuck job', { 
-          jobId: job.id, 
-          status: job.status, 
+          jobId: job.jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+          status: job.status?.replace(/[\r\n\t]/g, '') || 'unknown', 
           createdAt: job.createdAt 
         });
         
-        await processingJobService.updateJobStatus(job.id, 'failed', {
+        await processingJobService.updateJobStatus(job.jobId, 'failed', {
           error: `Job timed out after ${olderThanMinutes} minutes`,
         });
       }
@@ -200,7 +219,9 @@ export class JobQueue {
         logger.info('Stuck jobs cleanup completed', { count: stuckJobs.length });
       }
     } catch (error) {
-      logger.error('Failed to cleanup stuck jobs', { error });
+      logger.error('Failed to cleanup stuck jobs', { 
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error'
+      });
     }
   }
 
@@ -228,7 +249,9 @@ export class JobQueue {
         failed: failed.length,
       };
     } catch (error) {
-      logger.error('Failed to get queue stats', { error });
+      logger.error('Failed to get queue stats', { 
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error'
+      });
       throw error;
     }
   }
@@ -240,7 +263,9 @@ export class JobQueue {
     // Clear all pending retries
     for (const [jobId, timeoutId] of this.retryTimeouts.entries()) {
       clearTimeout(timeoutId);
-      logger.info('Cancelled pending retry on shutdown', { jobId });
+      logger.info('Cancelled pending retry on shutdown', { 
+        jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
     }
     this.retryTimeouts.clear();
   }

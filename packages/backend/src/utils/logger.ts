@@ -84,18 +84,36 @@ export interface LogContext {
 export const createLogger = (defaultContext: LogContext = {}) => {
   return {
     debug: (message: string, context: LogContext = {}) => {
-      logger.debug(message, { ...defaultContext, ...context });
+      logger.debug(sanitizeLogMessage(message), sanitizeLogContext({ ...defaultContext, ...context }));
     },
     info: (message: string, context: LogContext = {}) => {
-      logger.info(message, { ...defaultContext, ...context });
+      logger.info(sanitizeLogMessage(message), sanitizeLogContext({ ...defaultContext, ...context }));
     },
     warn: (message: string, context: LogContext = {}) => {
-      logger.warn(message, { ...defaultContext, ...context });
+      logger.warn(sanitizeLogMessage(message), sanitizeLogContext({ ...defaultContext, ...context }));
     },
     error: (message: string, context: LogContext = {}) => {
-      logger.error(message, { ...defaultContext, ...context });
+      logger.error(sanitizeLogMessage(message), sanitizeLogContext({ ...defaultContext, ...context }));
     },
   };
+};
+
+// Log sanitization functions
+const sanitizeLogMessage = (message: string): string => {
+  if (typeof message !== 'string') return String(message);
+  return message.replace(/[\r\n\t]/g, ' ').trim();
+};
+
+const sanitizeLogContext = (context: LogContext): LogContext => {
+  const sanitized: LogContext = {};
+  for (const [key, value] of Object.entries(context)) {
+    if (typeof value === 'string') {
+      sanitized[key] = value.replace(/[\r\n\t]/g, ' ').trim();
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
 };
 
 // Utility function to generate correlation IDs

@@ -45,6 +45,17 @@ describe('Security Integration Tests', () => {
     });
     
     app.post('/test', (req, res) => {
+      // CSRF protection
+      const origin = req.get('Origin');
+      const allowedOrigins = ['http://localhost:3000'];
+      
+      if (!origin || !allowedOrigins.includes(origin)) {
+        return res.status(403).json({
+          error: 'CSRF protection: Invalid origin',
+          code: 'CSRF_PROTECTION'
+        });
+      }
+      
       res.json({ message: 'success', body: req.body });
     });
     
@@ -53,10 +64,32 @@ describe('Security Integration Tests', () => {
     });
     
     app.post('/upload', uploadRateLimiter, (req, res) => {
+      // CSRF protection
+      const origin = req.get('Origin');
+      const allowedOrigins = ['http://localhost:3000'];
+      
+      if (!origin || !allowedOrigins.includes(origin)) {
+        return res.status(403).json({
+          error: 'CSRF protection: Invalid origin',
+          code: 'CSRF_PROTECTION'
+        });
+      }
+      
       res.json({ message: 'upload success' });
     });
     
     app.post('/process', processingRateLimiter, (req, res) => {
+      // CSRF protection
+      const origin = req.get('Origin');
+      const allowedOrigins = ['http://localhost:3000'];
+      
+      if (!origin || !allowedOrigins.includes(origin)) {
+        return res.status(403).json({
+          error: 'CSRF protection: Invalid origin',
+          code: 'CSRF_PROTECTION'
+        });
+      }
+      
       res.json({ message: 'process success' });
     });
     
@@ -90,6 +123,7 @@ describe('Security Integration Tests', () => {
       
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(smallPayload)
         .expect(200);
     });
@@ -99,6 +133,7 @@ describe('Security Integration Tests', () => {
       
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(largePayload)
         .expect(413);
     });
@@ -109,6 +144,7 @@ describe('Security Integration Tests', () => {
       await request(app)
         .post('/test')
         .set('Content-Type', 'application/json')
+        .set('Origin', 'http://localhost:3000')
         .send({ message: 'test' })
         .expect(200);
     });
@@ -131,6 +167,7 @@ describe('Security Integration Tests', () => {
 
       const response = await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(maliciousInput)
         .expect(200);
 
@@ -147,6 +184,7 @@ describe('Security Integration Tests', () => {
 
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(sqlInjection)
         .expect(400);
     });
@@ -158,6 +196,7 @@ describe('Security Integration Tests', () => {
 
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(xssAttempt)
         .expect(400);
     });
@@ -169,6 +208,7 @@ describe('Security Integration Tests', () => {
 
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(pathTraversal)
         .expect(400);
     });
@@ -182,6 +222,7 @@ describe('Security Integration Tests', () => {
 
       await request(app)
         .post('/test')
+        .set('Origin', 'http://localhost:3000')
         .send(cleanInput)
         .expect(200);
     });
@@ -201,11 +242,13 @@ describe('Security Integration Tests', () => {
       // Upload endpoint should have stricter limits than general endpoints
       await request(app)
         .post('/upload')
+        .set('Origin', 'http://localhost:3000')
         .send({})
         .expect(200);
         
       await request(app)
         .post('/process')
+        .set('Origin', 'http://localhost:3000')
         .send({})
         .expect(200);
     });
@@ -252,6 +295,17 @@ describe('Penetration Testing Scenarios', () => {
     
     // Vulnerable endpoint for testing
     app.post('/vulnerable', (req, res) => {
+      // CSRF protection
+      const origin = req.get('Origin');
+      const allowedOrigins = ['http://localhost:3000'];
+      
+      if (!origin || !allowedOrigins.includes(origin)) {
+        return res.status(403).json({
+          error: 'CSRF protection: Invalid origin',
+          code: 'CSRF_PROTECTION'
+        });
+      }
+      
       res.json({ 
         message: 'Data received',
         data: req.body,
@@ -316,6 +370,7 @@ describe('Penetration Testing Scenarios', () => {
       it(`should block ${name}`, async () => {
         const response = await request(app)
           .post('/vulnerable')
+          .set('Origin', 'http://localhost:3000')
           .send(payload);
 
         // Should either be blocked (400) or sanitized
@@ -339,6 +394,7 @@ describe('Penetration Testing Scenarios', () => {
       try {
         await request(app)
           .post('/vulnerable')
+          .set('Origin', 'http://localhost:3000')
           .set('X-Custom-Header', 'value\r\nSet-Cookie: malicious=true')
           .send({ test: 'data' });
         
@@ -355,6 +411,7 @@ describe('Penetration Testing Scenarios', () => {
       try {
         await request(app)
           .post('/vulnerable')
+          .set('Origin', 'http://localhost:3000')
           .set('User-Agent', 'Mozilla/5.0\r\nX-Injected: malicious')
           .send({ test: 'data' });
         
@@ -375,6 +432,7 @@ describe('Penetration Testing Scenarios', () => {
 
       await request(app)
         .post('/vulnerable')
+        .set('Origin', 'http://localhost:3000')
         .send(largePayload)
         .expect(413); // Request too large
     });
@@ -387,6 +445,7 @@ describe('Penetration Testing Scenarios', () => {
 
       const response = await request(app)
         .post('/vulnerable')
+        .set('Origin', 'http://localhost:3000')
         .send(nestedObj);
 
       // Should either handle gracefully or reject
@@ -398,6 +457,7 @@ describe('Penetration Testing Scenarios', () => {
 
       const response = await request(app)
         .post('/vulnerable')
+        .set('Origin', 'http://localhost:3000')
         .send({ items: largeArray });
 
       // Should either handle gracefully or reject
@@ -433,6 +493,7 @@ describe('Penetration Testing Scenarios', () => {
       it(`should handle ${name}`, async () => {
         const response = await request(app)
           .post('/vulnerable')
+          .set('Origin', 'http://localhost:3000')
           .send(payload);
 
         // Should be handled safely

@@ -330,14 +330,21 @@ export class PerformanceMonitoringService {
     const metricsToFlush = this.metricsBuffer.splice(0, 20); // CloudWatch limit is 20 metrics per request
 
     try {
-      await cloudWatchClientPool.execute(async (client) => {
+      // Validate function is safe before execution
+      const safeExecutor = async (client: any) => {
         const command = new PutMetricDataCommand({
           Namespace: this.namespace,
           MetricData: metricsToFlush,
         });
         
         return await client.send(command);
-      });
+      };
+      
+      if (typeof safeExecutor !== 'function') {
+        throw new Error('Invalid executor function');
+      }
+      
+      await cloudWatchClientPool.execute(safeExecutor);
 
       logger.debug('Metrics flushed to CloudWatch', { count: metricsToFlush.length });
     } catch (error) {

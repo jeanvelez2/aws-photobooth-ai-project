@@ -20,7 +20,7 @@ const themeService = new ThemeService({
  * Retrieve all available themes with caching
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
   
   logger.info('Fetching themes', { requestId });
 
@@ -46,7 +46,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
       cached: true
     });
   } catch (error) {
-    logger.error('Failed to retrieve themes', { requestId, error });
+    logger.error('Failed to retrieve themes', { requestId, error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error' });
     res.status(500).json({
       error: true,
       message: 'Failed to retrieve themes',
@@ -60,10 +60,10 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
  * Retrieve a specific theme by ID with caching
  */
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
   const { id } = req.params;
   
-  logger.info('Fetching theme by ID', { requestId, themeId: id });
+  logger.info('Fetching theme by ID', { requestId, themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown' });
 
   try {
     if (!id) {
@@ -72,7 +72,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     const theme = await themeService.getThemeById(id);
 
     if (!theme) {
-      logger.warn('Theme not found', { requestId, themeId: id });
+      logger.warn('Theme not found', { requestId, themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown' });
       res.status(404).json({
         error: true,
         message: 'Theme not found',
@@ -83,14 +83,14 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 
     logger.info('Theme retrieved successfully', {
       requestId,
-      themeId: id,
-      themeName: theme.name,
+      themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown',
+      themeName: theme.name?.replace(/[\r\n\t]/g, '') || 'unknown',
     });
 
     // Set cache headers for client-side caching
     res.set({
       'Cache-Control': 'public, max-age=300', // 5 minutes
-      'ETag': `"theme-${id}-${Date.now()}"`,
+      'ETag': `"theme-${Date.now()}"`,
       'Last-Modified': new Date().toUTCString()
     });
 
@@ -100,7 +100,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
       cached: true
     });
   } catch (error) {
-    logger.error('Failed to retrieve theme', { requestId, themeId: id, error });
+    logger.error('Failed to retrieve theme', { requestId, themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown', error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error' });
     res.status(500).json({
       error: true,
       message: 'Failed to retrieve theme',
@@ -116,10 +116,14 @@ export default router;
  * Retrieve a specific theme variant
  */
 router.get('/:id/variants/:variantId', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
   const { id, variantId } = req.params;
   
-  logger.info('Fetching theme variant', { requestId, themeId: id, variantId });
+  logger.info('Fetching theme variant', { 
+    requestId, 
+    themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown', 
+    variantId: variantId?.replace(/[\r\n\t]/g, '') || 'unknown'
+  });
 
   try {
     if (!id) {
@@ -128,7 +132,11 @@ router.get('/:id/variants/:variantId', asyncHandler(async (req: Request, res: Re
     const result = await themeService.getThemeVariant(id, variantId || '');
 
     if (!result) {
-      logger.warn('Theme variant not found', { requestId, themeId: id, variantId });
+      logger.warn('Theme variant not found', { 
+        requestId, 
+        themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown', 
+        variantId: variantId?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
       res.status(404).json({
         error: true,
         message: 'Theme variant not found',
@@ -139,16 +147,16 @@ router.get('/:id/variants/:variantId', asyncHandler(async (req: Request, res: Re
 
     logger.info('Theme variant retrieved successfully', {
       requestId,
-      themeId: id,
-      variantId,
-      themeName: result.theme.name,
-      variantName: result.variant.name
+      themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown',
+      variantId: variantId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      themeName: result.theme.name?.replace(/[\r\n\t]/g, '') || 'unknown',
+      variantName: result.variant.name?.replace(/[\r\n\t]/g, '') || 'unknown'
     });
 
     // Set cache headers for client-side caching
     res.set({
       'Cache-Control': 'public, max-age=300', // 5 minutes
-      'ETag': `"variant-${id}-${variantId}-${Date.now()}"`,
+      'ETag': `"variant-${Date.now()}"`,
       'Last-Modified': new Date().toUTCString()
     });
 
@@ -163,9 +171,9 @@ router.get('/:id/variants/:variantId', asyncHandler(async (req: Request, res: Re
   } catch (error) {
     logger.error('Failed to retrieve theme variant', { 
       requestId, 
-      themeId: id, 
-      variantId, 
-      error 
+      themeId: id?.replace(/[\r\n\t]/g, '') || 'unknown', 
+      variantId: variantId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error'
     });
     res.status(500).json({
       error: true,
@@ -180,7 +188,18 @@ router.get('/:id/variants/:variantId', asyncHandler(async (req: Request, res: Re
  * Seed the database with initial theme data (admin endpoint)
  */
 router.post('/seed', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  // CSRF protection
+  const origin = req.get('Origin');
+  const allowedOrigins = ['http://localhost:3000'];
+  
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return res.status(403).json({
+      error: 'CSRF protection: Invalid origin',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
   
   logger.info('Starting theme seeding', { requestId });
 
@@ -198,7 +217,7 @@ router.post('/seed', asyncHandler(async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    logger.error('Failed to seed themes', { requestId, error });
+    logger.error('Failed to seed themes', { requestId, error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error' });
     res.status(500).json({
       error: true,
       message: 'Failed to seed themes',
@@ -212,7 +231,7 @@ router.post('/seed', asyncHandler(async (req: Request, res: Response) => {
  * Get cache statistics (admin endpoint)
  */
 router.get('/cache/stats', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
   
   logger.info('Fetching cache statistics', { requestId });
 
@@ -226,7 +245,7 @@ router.get('/cache/stats', asyncHandler(async (req: Request, res: Response) => {
       data: stats
     });
   } catch (error) {
-    logger.error('Failed to retrieve cache statistics', { requestId, error });
+    logger.error('Failed to retrieve cache statistics', { requestId, error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error' });
     res.status(500).json({
       error: true,
       message: 'Failed to retrieve cache statistics',

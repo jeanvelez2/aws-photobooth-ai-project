@@ -64,6 +64,23 @@ describe.skip('Process Routes Integration', () => {
     
     app = express();
     app.use(express.json());
+    
+    // Add CSRF protection middleware for testing
+    app.use((req, res, next) => {
+      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        const origin = req.get('Origin');
+        const allowedOrigins = ['http://localhost:3000'];
+        
+        if (!origin || !allowedOrigins.includes(origin)) {
+          return res.status(403).json({
+            error: 'CSRF protection: Invalid origin',
+            code: 'CSRF_PROTECTION'
+          });
+        }
+      }
+      next();
+    });
+    
     app.use('/api/process', processRoutes.default);
   });
 
@@ -73,34 +90,39 @@ describe.skip('Process Routes Integration', () => {
 
   describe('POST /api/process', () => {
     const validProcessingRequest = {
-      imageKey: 'uploads/2024-01-15/test-image.jpg',
+      photoId: 'photo-123',
       themeId: 'barbarian',
       outputFormat: 'jpeg',
+      originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/2024-01-15/test-image.jpg',
     };
 
     it('should create processing job successfully', async () => {
       const mockJob = {
-        id: 'job-123',
-        status: 'queued',
+        jobId: 'job-123',
+        id: 'job-123', // For route response compatibility
+        status: 'queued' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/2024-01-15/test-image.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.createJob).mockResolvedValue(mockJob);
 
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(validProcessingRequest)
-        .expect(202);
+        .expect(201);
 
       expect(response.body).toEqual({
-        success: true,
-        data: {
-          jobId: 'job-123',
-          status: 'queued',
-          estimatedTime: expect.any(Number),
-        },
+        id: 'job-123',
+        status: 'queued',
+        createdAt: expect.any(String),
+        themeId: 'barbarian',
+        variantId: undefined,
+        outputFormat: 'jpeg',
       });
 
       expect(processingJobService.createJob).toHaveBeenCalledWith({
@@ -112,21 +134,23 @@ describe.skip('Process Routes Integration', () => {
 
     it('should handle validation errors', async () => {
       const invalidRequest = {
-        imageKey: '', // Invalid empty key
+        photoId: '', // Invalid empty key
         themeId: 'barbarian',
         outputFormat: 'jpeg',
+        originalImageUrl: 'https://s3.amazonaws.com/bucket/test.jpg',
       };
 
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(invalidRequest)
         .expect(400);
 
-      expect(response.body.error).toBe('Validation failed');
+      expect(response.body.error).toBe('Invalid request data');
       expect(response.body.details).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            path: 'imageKey',
+            path: ['photoId'],
           }),
         ])
       );
@@ -140,6 +164,7 @@ describe.skip('Process Routes Integration', () => {
 
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(invalidRequest)
         .expect(400);
 
@@ -154,6 +179,7 @@ describe.skip('Process Routes Integration', () => {
 
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(invalidRequest)
         .expect(400);
 
@@ -169,6 +195,7 @@ describe.skip('Process Routes Integration', () => {
 
       const response = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send(validProcessingRequest)
         .expect(503);
 
@@ -182,12 +209,15 @@ describe.skip('Process Routes Integration', () => {
   describe('GET /api/process/:id', () => {
     it('should return job status for existing job', async () => {
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'processing',
+        status: 'processing' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
         progress: 45,
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.getJob).mockResolvedValue(mockJob);
@@ -197,27 +227,29 @@ describe.skip('Process Routes Integration', () => {
         .expect(200);
 
       expect(response.body).toEqual({
-        success: true,
-        data: {
-          id: 'job-123',
-          status: 'processing',
-          progress: 45,
-          themeId: 'barbarian',
-          createdAt: expect.any(String),
-        },
+        id: 'job-123',
+        status: 'processing',
+        createdAt: expect.any(String),
+        themeId: 'barbarian',
+        variantId: undefined,
+        outputFormat: 'jpeg',
+        retryCount: 0,
       });
     });
 
     it('should return completed job with result URL', async () => {
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'completed',
+        status: 'completed' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         resultImageUrl: 'https://s3.amazonaws.com/bucket/processed/result.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
         completedAt: new Date(),
         processingTimeMs: 8500,
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.getJob).mockResolvedValue(mockJob);
@@ -227,29 +259,32 @@ describe.skip('Process Routes Integration', () => {
         .expect(200);
 
       expect(response.body).toEqual({
-        success: true,
-        data: {
-          id: 'job-123',
-          status: 'completed',
-          resultUrl: 'https://s3.amazonaws.com/bucket/processed/result.jpg',
-          themeId: 'barbarian',
-          processingTime: 8500,
-          createdAt: expect.any(String),
-          completedAt: expect.any(String),
-        },
+        id: 'job-123',
+        status: 'completed',
+        createdAt: expect.any(String),
+        themeId: 'barbarian',
+        variantId: undefined,
+        outputFormat: 'jpeg',
+        retryCount: 0,
+        completedAt: expect.any(String),
+        processingTimeMs: 8500,
+        resultUrl: 'https://s3.amazonaws.com/bucket/processed/result.jpg',
       });
     });
 
     it('should return failed job with error details', async () => {
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'failed',
+        status: 'failed' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         themeId: 'barbarian',
         error: 'NO_FACE_DETECTED',
         errorMessage: 'No face detected in the uploaded image',
         createdAt: new Date(),
         completedAt: new Date(),
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.getJob).mockResolvedValue(mockJob);
@@ -259,16 +294,15 @@ describe.skip('Process Routes Integration', () => {
         .expect(200);
 
       expect(response.body).toEqual({
-        success: true,
-        data: {
-          id: 'job-123',
-          status: 'failed',
-          error: 'NO_FACE_DETECTED',
-          errorMessage: 'No face detected in the uploaded image',
-          themeId: 'barbarian',
-          createdAt: expect.any(String),
-          completedAt: expect.any(String),
-        },
+        id: 'job-123',
+        status: 'failed',
+        createdAt: expect.any(String),
+        themeId: 'barbarian',
+        variantId: undefined,
+        outputFormat: 'jpeg',
+        retryCount: 0,
+        completedAt: expect.any(String),
+        error: 'NO_FACE_DETECTED',
       });
     });
 
@@ -280,8 +314,8 @@ describe.skip('Process Routes Integration', () => {
         .expect(404);
 
       expect(response.body).toEqual({
-        error: 'Processing job not found',
-        code: 'JOB_NOT_FOUND',
+        error: 'Job not found',
+        message: 'The requested processing job does not exist or has expired',
       });
     });
 
@@ -315,17 +349,21 @@ describe.skip('Process Routes Integration', () => {
     it('should handle complete processing workflow', async () => {
       // Step 1: Create processing job
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'queued',
+        status: 'queued' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.createJob).mockResolvedValue(mockJob);
 
       const createResponse = await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send({
           imageKey: 'uploads/test.jpg',
           themeId: 'barbarian',
@@ -338,7 +376,7 @@ describe.skip('Process Routes Integration', () => {
       // Step 2: Check job status (processing)
       const processingJob = {
         ...mockJob,
-        status: 'processing',
+        status: 'processing' as const,
         progress: 50,
       };
 
@@ -354,7 +392,7 @@ describe.skip('Process Routes Integration', () => {
       // Step 3: Check job completion
       const completedJob = {
         ...mockJob,
-        status: 'completed',
+        status: 'completed' as const,
         resultImageUrl: 'https://s3.amazonaws.com/bucket/processed/result.jpg',
         completedAt: new Date(),
         processingTimeMs: 8500,
@@ -374,17 +412,21 @@ describe.skip('Process Routes Integration', () => {
     it('should handle processing failure workflow', async () => {
       // Create job
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'queued',
+        status: 'queued' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.createJob).mockResolvedValue(mockJob);
 
       await request(app)
         .post('/api/process')
+        .set('Origin', 'http://localhost:3000')
         .send({
           imageKey: 'uploads/test.jpg',
           themeId: 'barbarian',
@@ -395,7 +437,7 @@ describe.skip('Process Routes Integration', () => {
       // Check failed job status
       const failedJob = {
         ...mockJob,
-        status: 'failed',
+        status: 'failed' as const,
         error: 'NO_FACE_DETECTED',
         errorMessage: 'No face detected in the uploaded image',
         completedAt: new Date(),
@@ -416,11 +458,14 @@ describe.skip('Process Routes Integration', () => {
   describe('Rate Limiting and Concurrency', () => {
     it('should handle multiple concurrent requests', async () => {
       const mockJob = {
+        jobId: 'job-123',
         id: 'job-123',
-        status: 'queued',
+        status: 'queued' as const,
         originalImageUrl: 'https://s3.amazonaws.com/bucket/uploads/test.jpg',
         themeId: 'barbarian',
         createdAt: new Date(),
+        retryCount: 0,
+        outputFormat: 'jpeg' as const,
       };
 
       vi.mocked(processingJobService.createJob).mockResolvedValue(mockJob);
@@ -428,6 +473,7 @@ describe.skip('Process Routes Integration', () => {
       const requests = Array.from({ length: 5 }, (_, i) =>
         request(app)
           .post('/api/process')
+          .set('Origin', 'http://localhost:3000')
           .send({
             imageKey: `uploads/test-${i}.jpg`,
             themeId: 'barbarian',

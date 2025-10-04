@@ -144,6 +144,7 @@ describe('Server Integration', () => {
     it('should handle JSON body parsing', async () => {
       const response = await request(app)
         .post('/api/nonexistent')
+        .set('Origin', 'http://localhost:3000')
         .send({ test: 'data' })
         .set('Content-Type', 'application/json');
 

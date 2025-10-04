@@ -51,9 +51,9 @@ router.post(
     const { fileName, fileType, fileSize } = req.body;
 
     logger.info('Generating pre-signed upload URL', {
-      requestId,
-      fileName,
-      fileType,
+      requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      fileName: fileName?.replace(/[\r\n\t]/g, '') || 'unknown',
+      fileType: fileType?.replace(/[\r\n\t]/g, '') || 'unknown',
       fileSize,
     });
 
@@ -65,8 +65,8 @@ router.post(
       });
 
       logger.info('Pre-signed URL generated successfully', {
-        requestId,
-        key: result.key,
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        key: result.key?.replace(/[\r\n\t]/g, '') || 'unknown',
         expiresIn: result.expiresIn,
       });
 
@@ -83,21 +83,21 @@ router.post(
         const s3Error = error as S3UploadError;
         
         logger.error('S3 service error', {
-          requestId,
-          error: s3Error.message,
-          code: s3Error.code,
+          requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+          error: s3Error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error',
+          code: s3Error.code?.replace(/[\r\n\t]/g, '') || 'unknown',
         });
 
         res.status(s3Error.statusCode || 500).json({
-          error: s3Error.message,
-          code: s3Error.code,
+          error: s3Error.message?.replace(/[<>"'&]/g, '') || 'S3 service error',
+          code: s3Error.code?.replace(/[<>"'&]/g, '') || 'S3_ERROR',
         });
         return;
       }
 
       logger.error('Unexpected error generating pre-signed URL', {
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
       });
 
       res.status(500).json({

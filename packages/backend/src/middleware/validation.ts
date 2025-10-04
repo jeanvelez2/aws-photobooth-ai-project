@@ -20,11 +20,11 @@ export const handleValidationErrors = (
     }));
 
     logger.warn('Validation failed', {
-      requestId: req.headers['x-request-id'],
-      path: req.path,
-      method: req.method,
+      requestId: (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
       errors: errorDetails,
-      ip: req.ip,
+      ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
     });
 
     res.status(400).json({
@@ -43,11 +43,25 @@ export const handleValidationErrors = (
  */
 export const validate = (validations: ValidationChain[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Run all validations
-    await Promise.all(validations.map(validation => validation.run(req)));
-    
-    // Handle validation errors
-    handleValidationErrors(req, res, next);
+    try {
+      // Sanitize input before validation to prevent code injection
+      if (req.body && typeof req.body === 'object') {
+        req.body = sanitizeObject(req.body);
+      }
+      
+      // Run validations with proper error handling
+      for (const validation of validations) {
+        await validation.run(req);
+      }
+      
+      handleValidationErrors(req, res, next);
+    } catch (error) {
+      logger.error('Validation error', {
+        error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown'
+      });
+      res.status(400).json({ error: 'Validation failed' });
+    }
   };
 };
 
@@ -55,38 +69,33 @@ export const validate = (validations: ValidationChain[]) => {
  * Input sanitization middleware
  */
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
+  const requestId = (req.headers['x-request-id'] as string)?.replace(/[\r\n\t]/g, '') || 'unknown';
+  
   try {
-    const requestId = req.headers['x-request-id'] as string;
 
     // Sanitize request body
     if (req.body && typeof req.body === 'object') {
       req.body = sanitizeObject(req.body);
     }
 
-    // Sanitize query parameters (create new object to avoid read-only issues)
+    // Sanitize query and URL parameters
     if (req.query && typeof req.query === 'object') {
-      const sanitizedQuery = sanitizeObject(req.query);
-      Object.defineProperty(req, 'query', {
-        value: sanitizedQuery,
-        writable: true,
-        configurable: true
-      });
+      req.query = sanitizeObject(req.query);
     }
-
-    // Sanitize URL parameters
     if (req.params && typeof req.params === 'object') {
       req.params = sanitizeObject(req.params);
     }
 
-    logger.debug('Input sanitization completed', { requestId, path: req.path });
+    logger.debug('Input sanitization completed', { 
+      requestId, 
+      path: req.path || 'unknown'
+    });
     next();
   } catch (error) {
-    // If sanitization fails, log the error but don't block the request
-    logger.error('Input sanitization middleware error', {
-      requestId: req.headers['x-request-id'],
+    logger.error('Input sanitization failed', {
+      requestId,
       error: error instanceof Error ? error.message : 'Unknown error',
-      path: req.path,
-      method: req.method,
+      path: req.path || 'unknown'
     });
     next();
   }
@@ -111,13 +120,27 @@ function sanitizeObject(obj: any): any {
   if (typeof obj === 'object') {
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
-      const sanitizedKey = sanitizeString(key);
-      sanitized[sanitizedKey] = sanitizeObject(value);
+      if (typeof key === 'string' && isValidObjectKey(key)) {
+        sanitized[sanitizeString(key)] = sanitizeObject(value);
+      }
     }
     return sanitized;
   }
 
   return obj;
+}
+
+/**
+ * Validate object key is safe
+ */
+function isValidObjectKey(key: string): boolean {
+  try {
+    // Only allow alphanumeric, underscore, hyphen, and dot
+    return /^[a-zA-Z0-9_.-]+$/.test(key) && key.length <= 100;
+  } catch (error) {
+    // If validation fails, reject the key for safety
+    return false;
+  }
 }
 
 /**
@@ -128,15 +151,21 @@ function sanitizeString(str: string): string {
     return str;
   }
 
-  return str
-    // Remove null bytes
-    .replace(/\0/g, '')
-    // Remove control characters except newlines and tabs
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    // Normalize Unicode
-    .normalize('NFC')
-    // Trim whitespace
-    .trim();
+  try {
+    return str
+      .replace(/\0/g, '')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .normalize('NFC')
+      .trim();
+  } catch (error) {
+    // Log sanitization error for debugging
+    logger.warn('String sanitization failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      inputLength: str.length
+    });
+    // If sanitization fails, return empty string for safety
+    return '';
+  }
 }
 
 /**
@@ -198,13 +227,8 @@ export const commonValidations = {
   },
 };
 
-/**
- * Security-focused validation middleware
- */
-export const securityValidation = (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const requestId = req.headers['x-request-id'] as string;
-    const suspiciousPatterns = [
+// Suspicious patterns for security validation (created once for performance)
+const suspiciousPatterns = [
       // SQL injection patterns
       /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi,
       // XSS patterns
@@ -220,7 +244,16 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
       /;\s*(rm|del|format|shutdown|reboot|kill)/gi,
       /\|\s*(nc|netcat|wget|curl|bash|sh|cmd)/gi,
       /`[^`]*`/g, // Backtick command substitution
-    ];
+];
+
+/**
+ * Security-focused validation middleware
+ */
+export const securityValidation = (req: Request, res: Response, next: NextFunction) => {
+  const requestId = req.headers['x-request-id'] as string;
+  const sanitizedRequestId = requestId?.replace(/[\r\n\t]/g, '') || 'unknown';
+  
+  try {
 
     let requestData: string;
     try {
@@ -232,10 +265,10 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
     } catch (stringifyError) {
       // If we can't stringify the data, skip validation but log the issue
       logger.warn('Failed to stringify request data for security validation', {
-        requestId,
-        error: stringifyError instanceof Error ? stringifyError.message : 'Unknown error',
-        path: req.path,
-        method: req.method,
+        requestId: sanitizedRequestId,
+        error: stringifyError instanceof Error ? stringifyError.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
       });
       return next();
     }
@@ -244,31 +277,36 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(requestData)) {
       logger.warn('Malicious input detected', {
-        requestId,
-        ip: req.ip,
-        path: req.path,
-        method: req.method,
-        pattern: pattern.source,
-        userAgent: req.get('User-Agent'),
+        requestId: sanitizedRequestId,
+        ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+        pattern: pattern.source?.replace(/[\r\n\t]/g, '') || 'unknown',
+        userAgent: req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown',
       });
 
       return res.status(400).json({
         error: 'Invalid input detected',
         message: 'Request contains potentially malicious content',
-        code: 'MALICIOUS_INPUT',
-        requestId,
+        code: 'MALICIOUS_INPUT'
       });
     }
   }
 
+  // Log successful security validation
+  logger.debug('Security validation passed', {
+    requestId: sanitizedRequestId,
+    path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown'
+  });
+  
   next();
   } catch (error) {
     // If security validation fails, log the error but don't block the request
     logger.error('Security validation middleware error', {
-      requestId: req.headers['x-request-id'],
-      error: error instanceof Error ? error.message : 'Unknown error',
-      path: req.path,
-      method: req.method,
+      requestId: sanitizedRequestId,
+      error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
     });
     next();
   }
@@ -278,6 +316,9 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
  * Content type validation middleware
  */
 export const validateContentType = (allowedTypes: string[]) => {
+  // Pre-compute lowercase types for performance
+  const lowerAllowedTypes = allowedTypes.map(type => type.toLowerCase());
+  
   return (req: Request, res: Response, next: NextFunction) => {
     const requestId = req.headers['x-request-id'] as string;
     const contentType = req.get('Content-Type');
@@ -287,17 +328,18 @@ export const validateContentType = (allowedTypes: string[]) => {
       return next();
     }
 
-    const isAllowed = allowedTypes.some(type => 
-      contentType.toLowerCase().includes(type.toLowerCase())
+    const lowerContentType = contentType.toLowerCase();
+    const isAllowed = lowerAllowedTypes.some(type => 
+      lowerContentType.includes(type)
     );
 
     if (!isAllowed) {
       logger.warn('Invalid content type', {
-        requestId,
-        contentType,
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        contentType: contentType?.replace(/[\r\n\t]/g, '') || 'unknown',
         allowedTypes,
-        ip: req.ip,
-        path: req.path,
+        ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
       });
 
       return res.status(415).json({
@@ -306,6 +348,13 @@ export const validateContentType = (allowedTypes: string[]) => {
         code: 'INVALID_CONTENT_TYPE',
       });
     }
+
+    // Log successful content type validation
+    logger.debug('Content type validation passed', {
+      requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      contentType: contentType?.replace(/[\r\n\t]/g, '') || 'unknown',
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown'
+    });
 
     next();
   };

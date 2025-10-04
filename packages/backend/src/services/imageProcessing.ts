@@ -640,9 +640,44 @@ export class ImageProcessingPipeline {
   }
 
   private async loadThemeTemplate(templateUrl: string): Promise<Buffer> {
-    // In a real implementation, this would fetch from S3
-    // For testing and development, return a mock buffer
-    logger.info('Loading theme template', { templateUrl });
+    // Validate URL to prevent path traversal
+    if (!templateUrl || typeof templateUrl !== 'string') {
+      throw new Error('Invalid template URL');
+    }
+    
+    // Sanitize URL and validate format
+    const sanitizedUrl = templateUrl.replace(/[\r\n\t]/g, '').trim();
+    
+    // Only allow HTTPS URLs from trusted domains to prevent SSRF
+    if (!sanitizedUrl.startsWith('https://')) {
+      throw new Error('Template URL must use HTTPS');
+    }
+    
+    // Validate URL format and prevent path traversal
+    try {
+      const url = new URL(sanitizedUrl);
+      // Only allow specific trusted domains (add your S3 bucket domain here)
+      const allowedDomains = ['s3.amazonaws.com', 'amazonaws.com'];
+      const isAllowedDomain = allowedDomains.some(domain => 
+        url.hostname.endsWith(domain)
+      );
+      
+      if (!isAllowedDomain) {
+        throw new Error('Template URL domain not allowed');
+      }
+      
+      // Prevent path traversal in URL path
+      if (url.pathname.includes('..') || url.pathname.includes('//')) {
+        throw new Error('Invalid URL path detected');
+      }
+    } catch (urlError) {
+      logger.error('Invalid template URL format', {
+        error: urlError instanceof Error ? urlError.message : 'Unknown error'
+      });
+      throw new Error('Invalid template URL format');
+    }
+    
+    logger.info('Loading theme template', { templateUrl: sanitizedUrl });
     
     // This would be replaced with actual S3 fetch in production
     // For now, create a simple mock template buffer

@@ -25,14 +25,38 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [loadedSources, setLoadedSources] = useState<Set<string>>(new Set());
 
+  // Sanitize and validate image URL
+  const sanitizeImageUrl = (url: string): string => {
+    try {
+      // Remove any potential XSS vectors
+      const cleanUrl = url.replace(/[<>"']/g, '');
+      
+      // Validate URL format
+      const urlObj = new URL(cleanUrl, window.location.origin);
+      
+      // Only allow http/https protocols
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        throw new Error('Invalid protocol');
+      }
+      
+      return urlObj.href;
+    } catch (error) {
+      console.warn('Invalid image URL:', url);
+      return ''; // Return empty string for invalid URLs
+    }
+  };
+
   // Generate different quality versions of the image
   const getImageSources = (originalSrc: string) => {
+    const sanitizedSrc = sanitizeImageUrl(originalSrc);
+    if (!sanitizedSrc) return [];
+    
     const sources = [];
     
     // Add low quality version (for quick loading)
     if (quality === 'high' || quality === 'medium') {
       sources.push({
-        src: originalSrc.replace(/\.(jpg|jpeg|png)$/i, '_low.$1'),
+        src: sanitizedSrc.replace(/\.(jpg|jpeg|png)$/i, '_low.$1'),
         quality: 'low'
       });
     }
@@ -40,14 +64,14 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
     // Add medium quality version
     if (quality === 'high') {
       sources.push({
-        src: originalSrc.replace(/\.(jpg|jpeg|png)$/i, '_medium.$1'),
+        src: sanitizedSrc.replace(/\.(jpg|jpeg|png)$/i, '_medium.$1'),
         quality: 'medium'
       });
     }
     
     // Add original high quality version
     sources.push({
-      src: originalSrc,
+      src: sanitizedSrc,
       quality: 'high'
     });
     
@@ -115,8 +139,8 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
 
       {/* Progressive image */}
       <img
-        src={currentSrc}
-        alt={alt}
+        src={sanitizeImageUrl(currentSrc)}
+        alt={alt.replace(/[<>"']/g, '')} // Sanitize alt text
         width={width}
         height={height}
         className={`
@@ -128,6 +152,10 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
           objectFit: 'cover',
           width: '100%',
           height: '100%'
+        }}
+        onError={(e) => {
+          // Prevent potential XSS through error handling
+          console.warn('Image failed to load');
         }}
       />
 

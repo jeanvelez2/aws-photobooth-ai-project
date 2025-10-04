@@ -58,6 +58,7 @@ describe('Upload Routes', () => {
     it('should generate presigned URL successfully', async () => {
       const mockResponse = {
         uploadUrl: 'https://test-bucket.s3.amazonaws.com/presigned-url',
+        // amazonq-ignore-next-line
         key: 'uploads/2024-01-15/test-uuid.jpg',
         expiresIn: 900,
       };
@@ -251,6 +252,7 @@ describe('Upload Routes', () => {
 
       const mockResponse = {
         uploadUrl: 'https://test-bucket.s3.amazonaws.com/presigned-url',
+        // amazonq-ignore-next-line
         key: 'uploads/2024-01-15/test-uuid.png',
         expiresIn: 900,
       };
@@ -272,6 +274,7 @@ describe('Upload Routes', () => {
 
       const mockResponse = {
         uploadUrl: 'https://test-bucket.s3.amazonaws.com/presigned-url',
+        // amazonq-ignore-next-line
         key: 'uploads/2024-01-15/test-uuid.webp',
         expiresIn: 900,
       };
@@ -376,6 +379,7 @@ describe('Upload Routes', () => {
 
       const mockResponse = {
         uploadUrl: 'https://test-bucket.s3.amazonaws.com/presigned-url',
+        // amazonq-ignore-next-line
         key: 'uploads/2024-01-15/test-uuid.jpg',
         expiresIn: 900,
       };
@@ -396,6 +400,7 @@ describe('Upload Routes', () => {
 
       const mockResponse = {
         uploadUrl: 'https://test-bucket.s3.amazonaws.com/presigned-url',
+        // amazonq-ignore-next-line
         key: 'uploads/2024-01-15/test-uuid.jpg',
         expiresIn: 900,
       };

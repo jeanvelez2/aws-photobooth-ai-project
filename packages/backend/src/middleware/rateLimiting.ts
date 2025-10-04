@@ -3,6 +3,22 @@ import { Request, Response } from 'express';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Escape HTML characters to prevent XSS
+ */
+const escapeHtml = (str: string): string => {
+  return str.replace(/[<>"'&]/g, (match) => {
+    const escapeMap: { [key: string]: string } = {
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#x27;',
+      '&': '&amp;'
+    };
+    return escapeMap[match] || match;
+  });
+};
+
+/**
  * Enhanced rate limiting configuration
  */
 interface RateLimitConfig {
@@ -36,7 +52,7 @@ export const createRateLimiter = (config: RateLimitConfig) => {
     max: config.max,
     message: {
       error: true,
-      message: config.message,
+      message: config.message ? escapeHtml(config.message) : 'Rate limit exceeded',
       code: 'RATE_LIMIT_EXCEEDED',
       retryAfter: Math.ceil(config.windowMs / 1000),
     },
@@ -53,32 +69,38 @@ export const createRateLimiter = (config: RateLimitConfig) => {
       const requestId = req.headers['x-request-id'] as string;
       
       logger.warn('Rate limit exceeded', {
-        requestId,
-        ip: req.ip,
-        path: req.path,
-        method: req.method,
-        userAgent: req.get('User-Agent'),
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+        path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+        method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+        userAgent: req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown',
         windowMs: config.windowMs,
         maxRequests: config.max,
+        timestamp: new Date().toISOString(),
+        severity: 'rate_limit_exceeded'
       });
 
       // Send security alert for excessive rate limiting
       if ((req as any).rateLimit && (req as any).rateLimit.remaining === 0) {
         logger.error('Potential abuse detected - rate limit hit', {
-          requestId,
-          ip: req.ip,
-          path: req.path,
+          requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+          ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
+          path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
           totalHits: (req as any).rateLimit.totalHits,
           resetTime: new Date((req as any).rateLimit.resetTime || Date.now()),
+          timestamp: new Date().toISOString(),
+          severity: 'potential_abuse',
+          action: 'rate_limit_enforcement'
         });
       }
 
+      const sanitizedMessage = config.message ? escapeHtml(config.message) : 'Rate limit exceeded';
+
       res.status(429).json({
         error: true,
-        message: config.message,
+        message: 'Rate limit exceeded',
         code: 'RATE_LIMIT_EXCEEDED',
-        retryAfter: Math.ceil(config.windowMs / 1000),
-        requestId,
+        retryAfter: Math.ceil(config.windowMs / 1000)
       });
     },
 
@@ -124,36 +146,51 @@ export const healthCheckRateLimiter = createRateLimiter({
   skipSuccessfulRequests: true,
 });
 
+// Check if IP has been flagged for suspicious activity
+// In production, this would be in Redis/database
+const suspiciousIPs = new Set<string>();
+
+// Pre-create strict limiter for flagged IPs to avoid creating it on every request
+const strictLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 2, // Very strict limit
+  message: 'Your IP has been flagged for suspicious activity. Please contact support.',
+});
+
 /**
  * Progressive rate limiting based on user behavior
  */
 export const progressiveRateLimiter = (req: Request, res: Response, next: Function) => {
   const requestId = req.headers['x-request-id'] as string;
   const ip = req.ip;
+  const timestamp = new Date().toISOString();
   
   // This could be enhanced with Redis for distributed rate limiting
   // For now, we'll use the basic rate limiter with enhanced monitoring
   
-  // Check if IP has been flagged for suspicious activity
-  const suspiciousIPs = new Set(); // In production, this would be in Redis/database
-  
-  if (suspiciousIPs.has(ip)) {
+  if (ip && suspiciousIPs.has(ip)) {
     logger.warn('Request from flagged IP', {
-      requestId,
-      ip,
-      path: req.path,
-      method: req.method,
+      requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      ip: (ip || 'unknown').replace(/[\r\n\t]/g, ''),
+      path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+      method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+      timestamp,
+      severity: 'flagged_ip_access',
+      action: 'strict_rate_limiting_applied'
     });
     
     // Apply stricter rate limiting for flagged IPs
-    const strictLimiter = createRateLimiter({
-      windowMs: 60 * 1000,
-      max: 2, // Very strict limit
-      message: 'Your IP has been flagged for suspicious activity. Please contact support.',
-    });
-    
     return strictLimiter(req, res, next as any);
   }
+  
+  logger.debug('Progressive rate limiter - request allowed', {
+    requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+    ip: (ip || 'unknown').replace(/[\r\n\t]/g, ''),
+    path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
+    method: req.method?.replace(/[\r\n\t]/g, '') || 'UNKNOWN',
+    timestamp,
+    action: 'request_allowed'
+  });
   
   next();
 };

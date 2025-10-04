@@ -33,13 +33,13 @@ export class ProcessingPipeline {
     
     try {
       logger.info('Starting complete image processing pipeline', {
-        jobId: job.id,
+        jobId: job.jobId,
         themeId: job.themeId,
         variantId: job.variantId,
       });
 
       // Step 1: Download the original image from S3
-      logger.info('Downloading original image', { jobId: job.id, imageUrl: job.originalImageUrl });
+      logger.info('Downloading original image', { jobId: job.jobId, imageUrl: job.originalImageUrl });
       const originalImageBuffer = await createSubsegment('DownloadImage', async (subsegment) => {
         if (subsegment) {
           subsegment.addAnnotation('imageUrl', job.originalImageUrl);
@@ -53,7 +53,7 @@ export class ProcessingPipeline {
       });
 
       // Step 2: Detect face in the image
-      logger.info('Starting face detection', { jobId: job.id });
+      logger.info('Starting face detection', { jobId: job.jobId });
       const faceDetectionResult = await createSubsegment('FaceDetection', async (subsegment) => {
         const result = await faceDetectionService.detectFace(originalImageBuffer);
         if (subsegment) {
@@ -69,13 +69,13 @@ export class ProcessingPipeline {
       });
 
       logger.info('Face detection completed', {
-        jobId: job.id,
+        jobId: job.jobId,
         confidence: faceDetectionResult.confidence,
         landmarkCount: faceDetectionResult.landmarks.length,
       });
 
       // Step 3: Process the image with the theme
-      logger.info('Starting image processing', { jobId: job.id, themeVariant: themeVariant.id });
+      logger.info('Starting image processing', { jobId: job.jobId, themeVariant: themeVariant.id });
       const processedImageBuffer = await createSubsegment('ImageProcessing', async (subsegment) => {
         if (subsegment) {
           subsegment.addAnnotation('themeVariant', themeVariant.id);
@@ -95,7 +95,7 @@ export class ProcessingPipeline {
       });
 
       // Step 4: Optimize the processed image
-      logger.info('Optimizing processed image', { jobId: job.id });
+      logger.info('Optimizing processed image', { jobId: job.jobId });
       const optimizedImageResult = await createSubsegment('ImageOptimization', async (subsegment) => {
         const result = await imageOptimizationService.optimizeImage(processedImageBuffer, {
           format: job.outputFormat,
@@ -121,14 +121,14 @@ export class ProcessingPipeline {
       });
 
       logger.info('Image optimization completed', {
-        jobId: job.id,
+        jobId: job.jobId,
         originalSize: processedImageBuffer.length,
         optimizedSize: optimizedImageResult.size,
         compressionRatio: optimizedImageResult.compressionRatio,
       });
 
       // Step 5: Upload the result to S3
-      logger.info('Uploading processed image', { jobId: job.id });
+      logger.info('Uploading processed image', { jobId: job.jobId });
       const resultImageUrl = await createSubsegment('UploadProcessedImage', async (subsegment) => {
         if (subsegment) {
           subsegment.addAnnotation('imageSizeBytes', optimizedImageResult.size);
@@ -136,7 +136,7 @@ export class ProcessingPipeline {
         }
         return await this.uploadProcessedImage(
           optimizedImageResult.buffer,
-          job.id,
+          job.jobId,
           job.outputFormat
         );
       });
@@ -144,7 +144,7 @@ export class ProcessingPipeline {
       const processingTimeMs = Date.now() - startTime;
       
       logger.info('Image processing pipeline completed successfully', {
-        jobId: job.id,
+        jobId: job.jobId,
         resultImageUrl,
         processingTimeMs,
       });
@@ -161,7 +161,7 @@ export class ProcessingPipeline {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       logger.error('Image processing pipeline failed', {
-        jobId: job.id,
+        jobId: job.jobId,
         error: errorMessage,
         processingTimeMs,
       });

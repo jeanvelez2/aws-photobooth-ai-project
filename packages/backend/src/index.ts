@@ -33,6 +33,12 @@ import healthRoutes from './routes/health.js';
 
 const app = express();
 
+// Reusable sanitization helper
+const escapeMap: { [key: string]: string } = {
+  '\r': '', '\n': '', '\t': '', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;'
+};
+const sanitizeForLog = (input: string) => input.replace(/[\r\n\t<>"'&]/g, (match) => escapeMap[match] || match);
+
 // Trust proxy for accurate IP addresses (important for rate limiting and security)
 app.set('trust proxy', 1);
 
@@ -54,6 +60,54 @@ app.use(metricsMiddleware);
 // Security monitoring (detect suspicious patterns early)
 app.use(securityMonitoring);
 
+// CSRF protection helper
+const validateCSRF = (req: express.Request, res: express.Response) => {
+  const origin = req.get('Origin');
+  const referer = req.get('Referer');
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ];
+  
+  if (!origin && !referer) {
+    return res.status(403).json({
+      error: 'CSRF protection: Missing origin/referer headers',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+  
+  let requestOrigin = origin;
+  if (!requestOrigin && referer) {
+    try {
+      requestOrigin = new URL(referer).origin;
+    } catch (error) {
+      return res.status(403).json({
+        error: 'CSRF protection: Invalid referer format',
+        code: 'CSRF_PROTECTION'
+      });
+    }
+  }
+  
+  if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+    return res.status(403).json({
+      error: 'CSRF protection: Invalid origin',
+      code: 'CSRF_PROTECTION'
+    });
+  }
+  
+  return null;
+};
+
+// CSRF protection for state-changing requests
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const csrfError = validateCSRF(req, res);
+    if (csrfError) return;
+  }
+  next();
+});
+
 // Temporarily disable security headers for debugging
 // app.use(securityHeaders);
 
@@ -69,14 +123,30 @@ app.use(secureCookies);
 // Request size limiting
 app.use(requestSizeLimiter(10 * 1024 * 1024)); // 10MB limit
 
-// CORS configuration with timeout protection
+// CORS configuration with strict SSRF protection
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3000', // Always allow local dev
-    /\.amazonaws\.com$/, // Allow AWS domains
-    /\.cloudfront\.net$/, // Allow CloudFront domains
-  ],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'https://localhost:3000'
+    ];
+    
+    // Add specific CloudFront distribution if configured
+    if (process.env.CLOUDFRONT_DOMAIN) {
+      allowedOrigins.push(`https://${process.env.CLOUDFRONT_DOMAIN}`);
+    }
+    
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Only allow exact matches from whitelist
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
@@ -112,20 +182,26 @@ app.use('/health', healthRoutes);
 
 // Handle POST requests to root path (common misconfiguration)
 app.post('/', generalRateLimiter, (req, res) => {
+  // CSRF protection - validate origin header
+  const csrfError = validateCSRF(req, res);
+  if (csrfError) return;
   const requestId = req.headers['x-request-id'] as string;
   
+  // Sanitize user-controlled input to prevent log injection and XSS
+  const sanitizedUserAgent = req.get('User-Agent')?.replace(/[\r\n\t<>"'&]/g, '') || 'unknown';
+  const sanitizedRequestId = requestId?.replace(/[\r\n\t<>"'&]/g, '') || 'unknown';
+  
   logger.warn('POST request to root path - should use /api/process', { 
-    requestId, 
+    requestId: sanitizedRequestId, 
     ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    body: req.body ? Object.keys(req.body) : 'no body'
+    userAgent: sanitizedUserAgent,
+    bodyKeys: req.body ? Object.keys(req.body).length : 0
   });
 
   res.status(400).json({
     error: 'Invalid endpoint',
     message: 'POST requests should be sent to /api/process for photo processing',
-    correctEndpoint: '/api/process',
-    requestId,
+    correctEndpoint: '/api/process'
   });
 });
 
@@ -135,9 +211,13 @@ app.use('/api', apiRoutes);
 // 404 handler for API routes - catch unmatched API routes
 app.use('/api', (req, res, next) => {
   if (!res.headersSent) {
+    // Sanitize user-controlled input to prevent log injection and XSS
+    const sanitizedPath = sanitizeForLog(req.path);
+    const sanitizedMethod = sanitizeForLog(req.method || 'UNKNOWN');
+    
     logger.warn('API route not found', {
-      path: req.path,
-      method: req.method,
+      path: sanitizedPath,
+      method: sanitizedMethod,
       ip: req.ip,
     });
     res.status(404).json({ 

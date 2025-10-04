@@ -59,8 +59,7 @@ router.post('/', generalRateLimiter, (req: Request, res: Response) => {
   res.status(400).json({
     error: 'Invalid endpoint',
     message: 'POST requests should be sent to /api/process for photo processing',
-    correctEndpoint: '/api/process',
-    requestId,
+    correctEndpoint: '/api/process'
   });
 });
 
