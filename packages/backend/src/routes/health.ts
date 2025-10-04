@@ -37,7 +37,7 @@ interface SystemHealth {
 /**
  * Basic health check endpoint for load balancer
  */
-router.get('/health', (req: Request, res: Response) => {
+router.get('/', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -48,7 +48,7 @@ router.get('/health', (req: Request, res: Response) => {
 /**
  * Detailed health check endpoint
  */
-router.get('/health/detailed', async (req: Request, res: Response) => {
+router.get('/detailed', async (req: Request, res: Response) => {
   const startTime = Date.now();
   const checks: HealthCheckResult[] = [];
 
@@ -124,7 +124,7 @@ router.get('/health/detailed', async (req: Request, res: Response) => {
 /**
  * Readiness probe endpoint for Kubernetes/ECS
  */
-router.get('/health/ready', async (req: Request, res: Response) => {
+router.get('/ready', async (req: Request, res: Response) => {
   try {
     // Check critical dependencies
     const s3Check = await checkS3Health();
@@ -159,7 +159,7 @@ router.get('/health/ready', async (req: Request, res: Response) => {
 /**
  * Liveness probe endpoint for Kubernetes/ECS
  */
-router.get('/health/live', (req: Request, res: Response) => {
+router.get('/live', (req: Request, res: Response) => {
   // Simple liveness check - if we can respond, we're alive
   res.status(200).json({
     status: 'alive',

@@ -69,22 +69,18 @@ app.use(secureCookies);
 // Request size limiting
 app.use(requestSizeLimiter(10 * 1024 * 1024)); // 10MB limit
 
-// Dynamic CORS configuration from Secrets Manager
-app.use(async (req, res, next) => {
-  try {
-    const frontendUrl = await configService.getFrontendUrl();
-    cors({
-      origin: [frontendUrl, 'http://localhost:3000'], // Allow frontend URL + local dev
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-    })(req, res, next);
-  } catch (error) {
-    logger.error('Failed to get frontend URL for CORS', { error });
-    // Fallback to permissive CORS
-    cors({ origin: true, credentials: true })(req, res, next);
-  }
-});
+// CORS configuration with timeout protection
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000', // Always allow local dev
+    /\.amazonaws\.com$/, // Allow AWS domains
+    /\.cloudfront\.net$/, // Allow CloudFront domains
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+}));
 
 // Progressive rate limiting (checks for suspicious IPs first)
 app.use(progressiveRateLimiter);
@@ -111,8 +107,27 @@ app.use(express.urlencoded({
 app.use(sanitizeInput);
 app.use(securityValidation);
 
-// Health check routes (before API routes for priority)
-app.use('/', healthRoutes);
+// Health check routes (mounted at /health to avoid conflicts)
+app.use('/health', healthRoutes);
+
+// Handle POST requests to root path (common misconfiguration)
+app.post('/', generalRateLimiter, (req, res) => {
+  const requestId = req.headers['x-request-id'] as string;
+  
+  logger.warn('POST request to root path - should use /api/process', { 
+    requestId, 
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    body: req.body ? Object.keys(req.body) : 'no body'
+  });
+
+  res.status(400).json({
+    error: 'Invalid endpoint',
+    message: 'POST requests should be sent to /api/process for photo processing',
+    correctEndpoint: '/api/process',
+    requestId,
+  });
+});
 
 // API routes
 app.use('/api', apiRoutes);

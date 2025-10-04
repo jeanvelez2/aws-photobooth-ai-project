@@ -2,8 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 import type { Theme, ProcessingRequest, ProcessingResult } from '../types';
 
-// API base URL - will be configured properly in later tasks
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// API base URL configuration
+const getApiBaseUrl = () => {
+  // In production, use the environment variable or construct from current location
+  if (import.meta.env.PROD) {
+    return import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.host}/api`;
+  }
+  // In development, use environment variable or localhost
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // API client utility
 class ApiClient {

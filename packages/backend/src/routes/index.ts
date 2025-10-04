@@ -47,7 +47,7 @@ router.get('/', generalRateLimiter, asyncHandler(async (req: Request, res: Respo
 }));
 
 // Handle POST requests to root path (redirect to correct endpoint)
-router.post('/', generalRateLimiter, asyncHandler(async (req: Request, res: Response) => {
+router.post('/', generalRateLimiter, (req: Request, res: Response) => {
   const requestId = req.headers['x-request-id'] as string;
   
   logger.warn('POST request to root path - should use /api/process', { 
@@ -62,7 +62,7 @@ router.post('/', generalRateLimiter, asyncHandler(async (req: Request, res: Resp
     correctEndpoint: '/api/process',
     requestId,
   });
-}));
+});
 
 // Mount theme routes (with general rate limiting)
 router.use('/themes', generalRateLimiter, themesRouter);
