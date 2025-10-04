@@ -89,8 +89,8 @@ app.use(async (req, res, next) => {
 // Progressive rate limiting (checks for suspicious IPs first)
 app.use(progressiveRateLimiter);
 
-// General rate limiting for all API routes
-app.use('/api', generalRateLimiter);
+// Note: Specific rate limiting is applied at the route level
+// This allows different endpoints to have different rate limits
 
 // Content type validation
 app.use(validateContentType(['application/json', 'application/x-www-form-urlencoded']));

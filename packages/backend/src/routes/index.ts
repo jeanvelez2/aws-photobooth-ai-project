@@ -4,7 +4,7 @@ import uploadRouter from './upload.js';
 import processRouter from './process.js';
 import privacyRouter from './privacy.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { healthCheckRateLimiter } from '../middleware/rateLimiting.js';
+import { healthCheckRateLimiter, generalRateLimiter } from '../middleware/rateLimiting.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -28,7 +28,7 @@ router.get('/health', healthCheckRateLimiter, asyncHandler(async (req: Request, 
 }));
 
 // API info endpoint
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+router.get('/', generalRateLimiter, asyncHandler(async (req: Request, res: Response) => {
   const requestId = req.headers['x-request-id'] as string;
   
   logger.info('API info requested', { requestId });
@@ -46,16 +46,16 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
-// Mount theme routes
-router.use('/themes', themesRouter);
+// Mount theme routes (with general rate limiting)
+router.use('/themes', generalRateLimiter, themesRouter);
 
-// Mount upload routes
-router.use('/upload', uploadRouter);
+// Mount upload routes (with general rate limiting)
+router.use('/upload', generalRateLimiter, uploadRouter);
 
-// Mount process routes
+// Mount process routes (has its own specific rate limiting)
 router.use('/process', processRouter);
 
-// Mount privacy routes
-router.use('/privacy', privacyRouter);
+// Mount privacy routes (with general rate limiting)
+router.use('/privacy', generalRateLimiter, privacyRouter);
 
 export default router;
