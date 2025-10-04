@@ -69,31 +69,26 @@ export class JobQueue {
   private async simulateProcessing(jobId: string): Promise<void> {
     const startTime = Date.now();
     
-    // Simulate processing time (2-8 seconds)
-    const processingTime = Math.random() * 6000 + 2000;
+    // Simulate shorter processing time for demo (1-3 seconds)
+    const processingTime = Math.random() * 2000 + 1000;
     
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       setTimeout(async () => {
         try {
-          // Simulate 90% success rate
-          if (Math.random() < 0.9) {
-            // Success case
-            const resultUrl = `https://example.com/processed/${jobId}.jpg`;
-            const processingTimeMs = Date.now() - startTime;
-            
-            await processingJobService.updateJobStatus(jobId, 'completed', {
-              resultImageUrl: resultUrl,
-              processingTimeMs,
-            });
-            
-            logger.info('Job completed successfully', { jobId, processingTimeMs });
-            resolve();
-          } else {
-            // Failure case
-            throw new Error('Simulated processing failure');
-          }
+          // Always succeed in demo mode
+          const resultUrl = `https://via.placeholder.com/400x400?text=Processed+${jobId.substring(0, 8)}`;
+          const processingTimeMs = Date.now() - startTime;
+          
+          await processingJobService.updateJobStatus(jobId, 'completed', {
+            resultImageUrl: resultUrl,
+            processingTimeMs,
+          });
+          
+          logger.info('Job completed successfully (demo mode)', { jobId, processingTimeMs });
+          resolve();
         } catch (error) {
-          reject(error);
+          logger.warn('Job completion error ignored in demo mode', { error, jobId });
+          resolve(); // Always resolve in demo mode
         }
       }, processingTime);
     });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const http = require('http');
+import http from 'http';
 
 const testEndpoints = [
   { path: '/health', method: 'GET', description: 'Health check' },

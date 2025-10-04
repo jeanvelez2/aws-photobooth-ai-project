@@ -291,7 +291,7 @@ export class ThemeService {
         UpdateExpression: `SET ${updateExpression.join(', ')}`,
         ExpressionAttributeNames: expressionAttributeNames,
         ExpressionAttributeValues: expressionAttributeValues,
-        ConditionExpression: 'attribute_exists(id)',
+        ConditionExpression: 'attribute_exists(themeId)',
         ReturnValues: 'ALL_NEW'
       }));
 
@@ -325,7 +325,7 @@ export class ThemeService {
           ':inactive': false,
           ':updatedAt': new Date().toISOString()
         },
-        ConditionExpression: 'attribute_exists(id)'
+        ConditionExpression: 'attribute_exists(themeId)'
       }));
 
       // Clear cache

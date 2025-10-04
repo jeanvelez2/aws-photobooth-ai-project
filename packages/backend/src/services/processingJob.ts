@@ -22,7 +22,7 @@ export class ProcessingJobService {
     const now = new Date();
     
     const job: ProcessingJob = {
-      id: jobId,
+      jobId: jobId, // DynamoDB partition key
       userId: request.userId,
       originalImageUrl: request.originalImageUrl,
       themeId: request.themeId,
@@ -61,7 +61,7 @@ export class ProcessingJobService {
       const result = await dynamoDBDocClient.send(
         new GetCommand({
           TableName: this.tableName,
-          Key: { id: jobId },
+          Key: { jobId: jobId },
         })
       );
 
@@ -127,7 +127,7 @@ export class ProcessingJobService {
       await dynamoDBDocClient.send(
         new UpdateCommand({
           TableName: this.tableName,
-          Key: { id: jobId },
+          Key: { jobId: jobId },
           UpdateExpression: `SET ${updateExpression.join(', ')}`,
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: expressionAttributeValues,
@@ -149,7 +149,7 @@ export class ProcessingJobService {
       const result = await dynamoDBDocClient.send(
         new UpdateCommand({
           TableName: this.tableName,
-          Key: { id: jobId },
+          Key: { jobId: jobId },
           UpdateExpression: 'ADD #retryCount :increment',
           ExpressionAttributeNames: {
             '#retryCount': 'retryCount',
@@ -209,7 +209,7 @@ export class ProcessingJobService {
       await dynamoDBDocClient.send(
         new DeleteCommand({
           TableName: this.tableName,
-          Key: { id: jobId },
+          Key: { jobId: jobId },
         })
       );
 

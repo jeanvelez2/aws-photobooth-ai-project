@@ -1,5 +1,5 @@
 export interface ProcessingJob {
-  id: string;
+  jobId: string;
   userId?: string | undefined;
   originalImageUrl: string;
   themeId: string;
