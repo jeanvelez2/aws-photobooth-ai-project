@@ -108,7 +108,7 @@ export class DataLifecycleService {
     try {
       // Get jobs older than cutoff date
       const jobs = await processingJobService.getJobsByStatus('completed', 1000);
-      const expiredJobs = jobs.filter(job => job.createdAt < cutoffDate);
+      const expiredJobs = jobs.filter(job => new Date(job.createdAt) < cutoffDate);
 
       // Delete expired jobs
       for (const job of expiredJobs) {
@@ -122,7 +122,7 @@ export class DataLifecycleService {
 
       // Also clean up failed jobs
       const failedJobs = await processingJobService.getJobsByStatus('failed', 1000);
-      const expiredFailedJobs = failedJobs.filter(job => job.createdAt < cutoffDate);
+      const expiredFailedJobs = failedJobs.filter(job => new Date(job.createdAt) < cutoffDate);
 
       for (const job of expiredFailedJobs) {
         try {

@@ -1,0 +1,64 @@
+config:
+  target: 'http://localhost:3001'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 10
+      name: "Ramp up load"
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load"
+  processor: "./load-test-functions.js"
+
+scenarios:
+  - name: "Health Check"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Theme Browsing"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/themes"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/themes/{{ $randomString() }}"
+          expect:
+            - statusCode: [200, 404]
+
+  - name: "Upload Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/upload/presigned-url"
+          json:
+            fileName: "test-{{ $randomString() }}.jpg"
+            fileType: "image/jpeg"
+          expect:
+            - statusCode: 200
+
+  - name: "Processing Flow"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/process"
+          json:
+            photoId: "load-test-{{ $randomString() }}"
+            themeId: "barbarian"
+            originalImageUrl: "https://example.com/test.jpg"
+          capture:
+            - json: "$.id"
+              as: "jobId"
+          expect:
+            - statusCode: [201, 429]
+      - get:
+          url: "/api/process/{{ jobId }}"
+          expect:
+            - statusCode: [200, 404]

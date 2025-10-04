@@ -28,7 +28,7 @@ export class ProcessingJobService {
       themeId: request.themeId,
       variantId: request.variantId,
       status: 'queued',
-      createdAt: now,
+      createdAt: now.toISOString(),
       retryCount: 0,
       outputFormat: request.outputFormat,
     };

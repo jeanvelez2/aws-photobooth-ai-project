@@ -1,5 +1,6 @@
 import { ProcessingJob, ProcessingRequest } from 'shared';
 import { processingJobService } from './processingJob.js';
+import { imageProcessingService } from './imageProcessingService.js';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -60,8 +61,8 @@ export class JobQueue {
       // Update status to processing
       await processingJobService.updateJobStatus(jobId, 'processing');
       
-      // Simulate processing (in real implementation, this would call the actual processing pipeline)
-      await this.simulateProcessing(jobId);
+      // Process the image
+      await this.processImage(jobId);
       
     } catch (error) {
       logger.error('Job processing failed', { 
@@ -73,40 +74,44 @@ export class JobQueue {
   }
 
   /**
-   * Simulate image processing (placeholder for actual processing)
+   * Process image using the image processing service
    */
-  private async simulateProcessing(jobId: string): Promise<void> {
-    const startTime = Date.now();
+  private async processImage(jobId: string): Promise<void> {
+    const job = await processingJobService.getJob(jobId);
+    if (!job) {
+      throw new Error('Job not found');
+    }
+
+    // Extract S3 key from originalImageUrl (assuming it's an S3 URL)
+    const imageKey = this.extractS3KeyFromUrl(job.originalImageUrl);
     
-    // Simulate shorter processing time for demo (1-3 seconds)
-    const processingTime = Math.random() * 2000 + 1000;
-    
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        try {
-          // Always succeed in demo mode
-          const resultUrl = `https://via.placeholder.com/400x400?text=Processed+${jobId.substring(0, 8)}`;
-          const processingTimeMs = Date.now() - startTime;
-          
-          await processingJobService.updateJobStatus(jobId, 'completed', {
-            resultImageUrl: resultUrl,
-            processingTimeMs,
-          });
-          
-          logger.info('Job completed successfully (demo mode)', { 
-            jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
-            processingTimeMs
-          });
-          resolve();
-        } catch (error) {
-          logger.warn('Job completion error ignored in demo mode', { 
-            error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
-            jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown'
-          });
-          resolve(); // Always resolve in demo mode
-        }
-      }, processingTime);
+    const result = await imageProcessingService.processImage(imageKey, {
+      themeId: job.themeId,
+      variantId: job.variantId,
+      outputFormat: job.outputFormat as 'jpeg' | 'png',
     });
+
+    await processingJobService.updateJobStatus(jobId, 'completed', {
+      resultImageUrl: result.resultImageUrl,
+      processingTimeMs: result.processingTimeMs,
+    });
+
+    logger.info('Job completed successfully', {
+      jobId: jobId?.replace(/[\r\n\t]/g, '') || 'unknown',
+      processingTimeMs: result.processingTimeMs,
+      faceCount: result.faceCount,
+    });
+  }
+
+  private extractS3KeyFromUrl(url: string): string {
+    // Handle data URLs (fallback to demo)
+    if (url.startsWith('data:')) {
+      return 'demo/placeholder.jpg';
+    }
+    
+    // Extract key from S3 URL
+    const match = url.match(/\/([^/]+\.[^/]+)$/);
+    return match ? match[1] : 'demo/placeholder.jpg';
   }
 
   /**

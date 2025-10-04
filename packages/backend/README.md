@@ -1,70 +1,36 @@
 # AI Photobooth Backend
 
-Node.js backend API for the AI Photobooth application, built with Express and TypeScript.
+Node.js Express API server with AWS integration for AI-powered face processing and theme management.
 
 ## Features
 
-- **Express Server**: RESTful API with TypeScript configuration
-- **Security**: Helmet for security headers, CORS configuration, rate limiting
-- **AWS Integration**: S3, DynamoDB, and Rekognition client setup
-- **Middleware**: Request logging, validation, error handling
-- **Structured Logging**: Winston logger with request correlation IDs
-- **Testing**: Comprehensive unit and integration tests
+- **Face Detection**: AWS Rekognition with gender and age analysis
+- **Image Processing**: Sharp-based processing with face blending and optimization
+- **Job Queue**: Background processing with retry logic and cleanup
+- **Theme Management**: Dynamic theme selection with gender-adaptive variants
+- **Security**: Advanced rate limiting, input validation, and SSRF protection
+- **Monitoring**: CloudWatch metrics, performance budgets, and health checks
+- **Scalability**: ECS Fargate deployment with auto-scaling
+
+## Technology Stack
+
+- **Node.js 22** with TypeScript 5.7
+- **Express 5.1** with comprehensive middleware
+- **AWS SDK v3** for cloud services integration
+- **Sharp 0.34** for high-performance image processing
+- **DynamoDB** for job and theme storage
+- **S3** for image storage with lifecycle policies
 
 ## API Endpoints
 
-### Health Check
-- `GET /api/health` - Server health status and metrics
-
-### Themes
-- `GET /api/themes` - List all available themes
-- `GET /api/themes/:id` - Get specific theme by ID
-
-## Architecture
-
-### Middleware Stack
-1. **Request Logger**: Adds unique request IDs and structured logging
-2. **Security Headers**: Helmet for CSP, XSS protection, etc.
-3. **CORS**: Cross-origin resource sharing configuration
-4. **Rate Limiting**: 10 requests per minute per IP for API routes
-5. **Body Parsing**: JSON and URL-encoded data parsing
-6. **Error Handler**: Global error handling with structured responses
-
-### AWS Services
-- **S3**: Image storage and pre-signed URL generation
-- **DynamoDB**: Processing jobs and theme data storage
-- **Rekognition**: Face detection and analysis
-
-### Error Handling
-- Custom error classes with proper HTTP status codes
-- Structured error responses with request correlation
-- Async error wrapper for route handlers
-- Development vs production error details
-
-## Configuration
-
-Environment variables are managed through the config system:
-
-```typescript
-{
-  port: 3001,
-  aws: {
-    region: 'us-east-1',
-    s3: { bucket: 'ai-photobooth-dev' },
-    dynamodb: {
-      processingJobsTable: 'processing-jobs-dev',
-      themesTable: 'themes-dev'
-    }
-  },
-  processing: {
-    timeoutMs: 15000,
-    maxRetries: 3
-  },
-  upload: {
-    maxSizeMB: 10,
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
-  }
-}
+```
+GET    /api/health              # Health check
+GET    /api/themes              # List all themes
+GET    /api/themes/:id          # Get specific theme
+POST   /api/upload/presigned-url # Generate upload URL
+POST   /api/process             # Create processing job
+GET    /api/process/:id         # Get job status
+GET    /api/gender/analyze      # Analyze gender from image
 ```
 
 ## Development
@@ -73,56 +39,74 @@ Environment variables are managed through the config system:
 # Install dependencies
 npm install
 
-# Run in development mode
+# Start development server
 npm run dev
 
 # Build for production
 npm run build
 
 # Run tests
-npm test
+npm run test
+npm run test:integration
+npm run test:load
 
-# Run tests in watch mode
-npm run test:watch
+# Theme management
+npm run setup:themes
+npm run seed:themes
 
-# Lint code
-npm run lint
-
-# Fix linting issues
-npm run lint:fix
+# Job management
+npm run worker:start
+npm run jobs:cleanup
 ```
 
-## Testing
+## Performance Budgets
 
-The test suite includes:
-- Unit tests for middleware and utilities
-- Integration tests for API routes
-- Server configuration tests
-- Error handling validation
-- Rate limiting verification
+- Response time: 5 seconds maximum
+- Memory usage: 512MB maximum
+- Processing time: 8 seconds target
+- Success rate: 95% minimum
+
+## AWS Services
+
+- **S3**: Image storage with CORS and lifecycle policies
+- **Rekognition**: Face detection and analysis
+- **DynamoDB**: Job queue and theme storage
+- **CloudWatch**: Metrics, logs, and alarms
+- **ECS Fargate**: Containerized deployment
 
 ## Security Features
 
-- **Rate Limiting**: 10 requests/minute per IP
-- **CORS**: Configurable origin whitelist
-- **Security Headers**: CSP, XSS protection, HSTS
-- **Input Validation**: Request validation middleware
-- **Error Sanitization**: Safe error responses in production
+- Rate limiting (5 processing requests per 15 minutes)
+- IP reputation tracking and blocking
+- Input validation and sanitization
+- SSRF protection with URL validation
+- Security headers and CORS configuration
+- Request size limiting (10MB maximum)
 
-## Logging
+## Environment Variables
 
-Structured logging with Winston includes:
-- Request correlation IDs
-- Request/response timing
-- Error tracking with stack traces
-- Configurable log levels
-- JSON format for production
+```bash
+NODE_ENV=development
+PORT=3001
+AWS_REGION=us-east-1
+S3_BUCKET=ai-photobooth-dev
+THEMES_TABLE=photobooth-themes-dev
+JOBS_TABLE=photobooth-processing-jobs-dev
+CORS_ORIGIN=http://localhost:5173
+```
 
-## Next Steps
+## Monitoring
 
-This foundation supports the following upcoming features:
-- S3 pre-signed URL generation (Task 8)
-- Image upload functionality (Task 9)
-- Face detection service (Task 10)
-- Image processing pipeline (Task 11)
-- Processing job management (Task 12)
+- Custom CloudWatch metrics for processing time and success rate
+- Performance budget monitoring with violation alerts
+- System resource monitoring (CPU, memory)
+- Request/response time tracking per endpoint
+- Error rate monitoring with automatic alerting
+
+## Job Processing
+
+- Background worker with cron scheduling
+- Automatic retry with exponential backoff
+- Job cleanup after 24 hours
+- Gender-adaptive theme selection
+- Image optimization and compression

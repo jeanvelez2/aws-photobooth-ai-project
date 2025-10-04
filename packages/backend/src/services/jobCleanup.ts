@@ -73,7 +73,7 @@ export class JobCleanupService {
 
       let cleanedCount = 0;
       for (const job of failedJobs) {
-        if (job.createdAt < cutoffTime) {
+        if (new Date(job.createdAt) < cutoffTime) {
           await processingJobService.deleteJob(job.jobId);
           cleanedCount++;
         }

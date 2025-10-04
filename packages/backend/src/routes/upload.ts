@@ -3,7 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { uploadRateLimiter } from '../middleware/rateLimiting.js';
 import { validate, commonValidations } from '../middleware/validation.js';
-import { s3Service, S3UploadError } from '../services/s3.js';
+import { uploadService } from '../services/uploadService.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -58,16 +58,21 @@ router.post(
     });
 
     try {
-      const result = await s3Service.generatePresignedUploadUrl({
-        fileName,
-        fileType,
-        fileSize,
-      });
+      // Validate file
+      const validation = uploadService.validateImageFile({ size: fileSize, type: fileType });
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: validation.error,
+          code: 'INVALID_FILE',
+        });
+      }
+
+      const result = await uploadService.generatePresignedUploadUrl(fileType);
 
       logger.info('Pre-signed URL generated successfully', {
         requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
         key: result.key?.replace(/[\r\n\t]/g, '') || 'unknown',
-        expiresIn: result.expiresIn,
+        photoId: result.photoId,
       });
 
       res.json({
@@ -75,34 +80,19 @@ router.post(
         data: {
           uploadUrl: result.uploadUrl,
           key: result.key,
-          expiresIn: result.expiresIn,
+          photoId: result.photoId,
+          expiresIn: 300,
         },
       });
     } catch (error) {
-      if (error instanceof Error && 'code' in error) {
-        const s3Error = error as S3UploadError;
-        
-        logger.error('S3 service error', {
-          requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
-          error: s3Error.message?.replace(/[\r\n\t]/g, '') || 'Unknown error',
-          code: s3Error.code?.replace(/[\r\n\t]/g, '') || 'unknown',
-        });
-
-        res.status(s3Error.statusCode || 500).json({
-          error: s3Error.message?.replace(/[<>"'&]/g, '') || 'S3 service error',
-          code: s3Error.code?.replace(/[<>"'&]/g, '') || 'S3_ERROR',
-        });
-        return;
-      }
-
-      logger.error('Unexpected error generating pre-signed URL', {
+      logger.error('Error generating pre-signed URL', {
         requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
         error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error',
       });
 
       res.status(500).json({
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
+        error: 'Failed to generate upload URL',
+        code: 'UPLOAD_ERROR',
       });
     }
   })

@@ -28,6 +28,8 @@ import {
 import { jobCleanupService } from './services/jobCleanup.js';
 import { processingWorker } from './services/processingWorker.js';
 import { cleanupScheduler } from './jobs/cleanupScheduler.js';
+import { startWorkers } from './workers/index.js';
+import { performanceMonitoring, checkSystemPerformance } from './middleware/performanceMonitoring.js';
 import apiRoutes from './routes/index.js';
 import healthRoutes from './routes/health.js';
 
@@ -205,6 +207,9 @@ app.post('/', generalRateLimiter, (req, res) => {
   });
 });
 
+// Performance monitoring middleware
+app.use(performanceMonitoring);
+
 // API routes
 app.use('/api', apiRoutes);
 
@@ -276,7 +281,13 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
   logger.info(`Server running on port ${port}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Start background workers
+  if (process.env.NODE_ENV !== 'test') {
+    await startWorkers();
+    checkSystemPerformance();
+  }
 });

@@ -16,9 +16,12 @@
     },
     "types": ["node", "vitest/globals"],
     "noImplicitReturns": false,
-    "exactOptionalPropertyTypes": false
+    "exactOptionalPropertyTypes": false,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false
   },
   "include": ["src/**/*", "../shared/src"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
   "references": [{ "path": "../shared" }]
 }

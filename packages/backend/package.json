@@ -12,9 +12,19 @@
     "test:load": "node load-tests/run-tests.js",
     "test:load:basic": "npx artillery run load-tests/artillery-config.yml",
     "test:load:scaling": "npx artillery run load-tests/scaling-test.yml",
+    "test:integration": "vitest tests/integration",
+    "test:load:new": "artillery run load-tests/load-test.yml",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts --fix",
-    "clean": "rm -rf dist node_modules .turbo"
+    "clean": "rm -rf dist node_modules .turbo",
+    "seed:themes": "tsx src/scripts/seedThemes.ts",
+    "upload:assets": "tsx src/scripts/uploadThemeAssets.ts",
+    "setup:cors": "tsx src/scripts/configureCors.ts",
+    "setup:themes": "npm run setup:cors && npm run upload:assets && npm run seed:themes",
+    "worker:start": "tsx src/workers/index.ts",
+    "jobs:retry": "tsx -e \"import { JobRetryService } from './src/services/jobRetryService.js'; new JobRetryService().retryFailedJobs()\"",
+    "jobs:cleanup": "tsx -e \"import { JobCleanupService } from './src/services/jobCleanupService.js'; new JobCleanupService().cleanupOldJobs()\"",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.716.0",

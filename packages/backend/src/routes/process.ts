@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { processingRateLimiter } from '../middleware/rateLimiting.js';
+import { adaptiveRateLimit, burstProtection, ipReputationCheck } from '../middleware/advancedRateLimiting.js';
 import { validate, commonValidations } from '../middleware/validation.js';
 import { jobQueue } from '../services/jobQueue.js';
+import { JobQueueService } from '../services/jobQueueService.js';
+import { imageProcessingService } from '../services/imageProcessingService.js';
 import { logger } from '../utils/logger.js';
 import { ProcessingRequest } from 'shared';
 
@@ -26,7 +29,7 @@ const jobIdSchema = z.object({
  * POST /api/process
  * Create a new processing job
  */
-router.post('/', processingRateLimiter, async (req: Request, res: Response) => {
+router.post('/', ipReputationCheck, burstProtection, adaptiveRateLimit, async (req: Request, res: Response) => {
   try {
     // Validate request body
     const validationResult = processRequestSchema.safeParse(req.body);

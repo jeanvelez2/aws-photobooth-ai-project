@@ -3,6 +3,7 @@ import themesRouter from './themes.js';
 import uploadRouter from './upload.js';
 import processRouter from './process.js';
 import privacyRouter from './privacy.js';
+import genderRouter from './gender.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { healthCheckRateLimiter, generalRateLimiter } from '../middleware/rateLimiting.js';
 import { logger } from '../utils/logger.js';
@@ -42,6 +43,7 @@ router.get('/', generalRateLimiter, asyncHandler(async (req: Request, res: Respo
       upload: '/api/upload',
       process: '/api/process',
       privacy: '/api/privacy',
+      gender: '/api/gender',
     },
   });
 }));
@@ -74,5 +76,8 @@ router.use('/process', processRouter);
 
 // Mount privacy routes (with general rate limiting)
 router.use('/privacy', generalRateLimiter, privacyRouter);
+
+// Mount gender routes (with general rate limiting)
+router.use('/gender', generalRateLimiter, genderRouter);
 
 export default router;
