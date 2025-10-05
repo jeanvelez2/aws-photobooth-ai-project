@@ -442,7 +442,8 @@ jobs:
           
           echo "Theme assets uploaded successfully"
         else
-          echo "WARNING: Theme assets directory not found - themes will not have images"
+          echo "ERROR: Theme assets directory not found at packages/backend/assets/themes"
+          exit 1
         fi
     
     - name: Seed theme data
@@ -462,13 +463,12 @@ jobs:
         echo "Waiting for ECS service to be ready..."
         sleep 60
         
-        echo "Setting S3_BUCKET_URL environment variable for theme seeding..."
-        export S3_BUCKET_URL="https://$BUCKET_NAME.s3.amazonaws.com"
+        echo "Setting S3_BUCKET_URL for theme seeding..."
+        S3_BUCKET_URL="https://$BUCKET_NAME.s3.amazonaws.com"
         
-        echo "Attempting theme seeding via ALB..."
-        curl -X POST "$ALB_URL/api/themes/seed" \
+        echo "Attempting theme seeding via ALB with bucket URL..."
+        curl -X POST "$ALB_URL/api/themes/seed?bucketUrl=$(echo $S3_BUCKET_URL | sed 's/\//\%2F/g')" \
           -H "Content-Type: application/json" \
-          -H "X-S3-Bucket-URL: $S3_BUCKET_URL" \
           --max-time 30 \
           --retry 3 \
           --retry-delay 10 || echo "ALB theme seeding failed"

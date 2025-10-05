@@ -8,15 +8,21 @@ const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1
 const docClient = DynamoDBDocumentClient.from(client);
 
 const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev';
-const S3_BUCKET_URL = process.env.S3_BUCKET_URL || 'https://example.com';
-
-// Function to convert relative URLs to absolute S3 URLs
-function makeAbsoluteUrl(relativeUrl: string): string {
-  if (relativeUrl.startsWith('http')) return relativeUrl;
-  return `${S3_BUCKET_URL}${relativeUrl}`;
+// Get S3_BUCKET_URL from environment or parameter
+function getS3BucketUrl(bucketUrlParam?: string): string {
+  return bucketUrlParam || process.env.S3_BUCKET_URL || process.env.S3_BUCKET_NAME ? 
+    `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com` : 
+    'https://example.com';
 }
 
-async function seedThemes() {
+// Function to convert relative URLs to absolute S3 URLs
+function makeAbsoluteUrl(relativeUrl: string, bucketUrl: string): string {
+  if (relativeUrl.startsWith('http')) return relativeUrl;
+  return `${bucketUrl}${relativeUrl}`;
+}
+
+async function seedThemes(bucketUrlParam?: string) {
+  const S3_BUCKET_URL = getS3BucketUrl(bucketUrlParam);
   console.log('🌱 Seeding themes to DynamoDB...');
   console.log(`📦 Using S3 bucket URL: ${S3_BUCKET_URL}`);
   
@@ -25,13 +31,13 @@ async function seedThemes() {
       // Convert relative URLs to absolute S3 URLs
       const processedTheme = {
         ...theme,
-        thumbnailUrl: makeAbsoluteUrl(theme.thumbnailUrl),
-        templateUrl: makeAbsoluteUrl(theme.templateUrl),
+        thumbnailUrl: makeAbsoluteUrl(theme.thumbnailUrl, S3_BUCKET_URL),
+        templateUrl: makeAbsoluteUrl(theme.templateUrl, S3_BUCKET_URL),
         variants: theme.variants.map(variant => ({
           ...variant,
-          thumbnailUrl: makeAbsoluteUrl(variant.thumbnailUrl),
-          templateUrl: makeAbsoluteUrl(variant.templateUrl),
-          blendingMask: makeAbsoluteUrl(variant.blendingMask)
+          thumbnailUrl: makeAbsoluteUrl(variant.thumbnailUrl, S3_BUCKET_URL),
+          templateUrl: makeAbsoluteUrl(variant.templateUrl, S3_BUCKET_URL),
+          blendingMask: makeAbsoluteUrl(variant.blendingMask, S3_BUCKET_URL)
         }))
       };
       const command = new PutCommand({
