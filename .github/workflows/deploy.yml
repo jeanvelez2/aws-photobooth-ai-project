@@ -107,9 +107,9 @@ jobs:
     - name: Build applications
       run: |
         echo "Building shared package..."
-        npm run build --workspace=shared
+        npm run build --workspace=packages/shared
         echo "Building backend..."
-        npm run build --workspace=backend
+        npm run build --workspace=packages/backend
         echo "Building frontend for production..."
         cd packages/frontend
         echo "VITE_API_URL=/api" > .env.production
