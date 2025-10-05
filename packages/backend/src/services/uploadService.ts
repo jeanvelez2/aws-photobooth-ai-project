@@ -3,13 +3,19 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 
+import { config } from '../config/index.js';
+
 export class UploadService {
   private s3Client: S3Client;
   private bucketName: string;
 
   constructor() {
     this.s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.bucketName = process.env.S3_BUCKET_NAME || '';
+    this.bucketName = config.aws.s3.bucketName;
+    
+    if (!this.bucketName) {
+      throw new Error('S3_BUCKET_NAME environment variable is required');
+    }
   }
 
   async generatePresignedUploadUrl(fileType: string, userId?: string): Promise<{

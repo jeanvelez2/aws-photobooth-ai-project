@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProcessingPage from './ProcessingPage';
 import { AppProvider } from '../contexts/AppContext';
 import type { ProcessingError as ProcessingErrorType } from '../types';
@@ -67,13 +68,22 @@ vi.mock('react-router-dom', async () => {
 
 // Create a custom provider with initial state
 const renderWithProviders = (component: React.ReactElement, initialState?: any) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  
   const TestProvider = ({ children }: { children: React.ReactNode }) => {
     return (
-      <BrowserRouter>
-        <AppProvider initialState={initialState}>
-          {children}
-        </AppProvider>
-      </BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppProvider initialState={initialState}>
+            {children}
+          </AppProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
     );
   };
 
@@ -218,7 +228,7 @@ describe('ProcessingPage - Error States', () => {
 
   it('renders ProcessingError component when error occurs', () => {
     // Mock useProcessing to return an error
-    vi.mocked(vi.importMock('../hooks/useProcessing')).mockReturnValue({
+    vi.doMock('../hooks/useProcessing', () => ({
       useProcessing: () => ({
         isProcessing: false,
         result: null,
@@ -232,7 +242,7 @@ describe('ProcessingPage - Error States', () => {
         clearError: mockClearError,
         reset: mockReset
       })
-    });
+    }));
 
     const initialState = {
       app: {

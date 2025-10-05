@@ -86,25 +86,35 @@ export class ImageUploadService {
   /**
    * Get pre-signed URL for upload
    */
-  private async getPresignedUrl(fileName: string, fileType: string): Promise<{ uploadUrl: string; fileUrl: string }> {
+  private async getPresignedUrl(fileName: string, fileType: string, fileSize: number): Promise<{ uploadUrl: string; fileUrl: string; key: string; photoId: string }> {
     const response = await fetch(`${this.API_BASE_URL}/upload/presigned`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ fileName, fileType }),
+      body: JSON.stringify({ 
+        fileName, 
+        fileType, 
+        fileSize 
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new UploadError(
-        errorData.message || `Failed to get upload URL: ${response.status}`,
+        errorData.error || errorData.message || `Failed to get upload URL: ${response.status}`,
         'PRESIGNED_URL_ERROR',
         response.status >= 500 // Retry on server errors
       );
     }
 
-    return response.json();
+    const result = await response.json();
+    return {
+      uploadUrl: result.data.uploadUrl,
+      fileUrl: `${this.API_BASE_URL.replace('/api', '')}/uploads/${result.data.key}`,
+      key: result.data.key,
+      photoId: result.data.photoId
+    };
   }
 
   /**
@@ -213,7 +223,9 @@ export class ImageUploadService {
         const fileName = `${timestamp}_${randomId}.${extension}`;
 
         // Get pre-signed URL
-        const { uploadUrl, fileUrl } = await this.getPresignedUrl(fileName, file.type);
+        const { uploadUrl, fileUrl, key, photoId } = await this.getPresignedUrl(fileName, file.type, file.size);
+        
+        console.log('Got presigned URL:', { uploadUrl: uploadUrl.substring(0, 100) + '...', key, photoId });
 
         // Upload file
         await this.uploadToS3(uploadUrl, file, options);

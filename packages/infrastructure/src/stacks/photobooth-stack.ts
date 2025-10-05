@@ -92,8 +92,20 @@ export class PhotoboothStack extends cdk.Stack {
             s3.HttpMethods.POST,
             s3.HttpMethods.PUT,
           ],
-          allowedOrigins: ['*'], // Will be restricted in production
-          allowedHeaders: ['*'],
+          allowedOrigins: [
+            `https://${this.distribution?.distributionDomainName || '*'}`,
+            'http://localhost:3000',
+            'https://localhost:3000'
+          ],
+          allowedHeaders: [
+            'Content-Type',
+            'Content-Length',
+            'Authorization',
+            'x-amz-date',
+            'x-amz-security-token',
+            'x-amz-user-agent'
+          ],
+          exposedHeaders: ['ETag'],
           maxAge: 3000,
         },
       ],

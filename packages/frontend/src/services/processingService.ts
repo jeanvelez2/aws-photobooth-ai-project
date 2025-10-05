@@ -214,6 +214,7 @@ export class ProcessingService {
 
     try {
       const response = await fetch(`${this.API_BASE_URL}/process/${id}`, {
+        method: 'GET',
         signal: options.signal,
       });
 

@@ -40,7 +40,14 @@ router.post('/', ipReputationCheck, burstProtection, adaptiveRateLimit, async (r
       });
     }
 
-    const request: ProcessingRequest = validationResult.data;
+    const request: ProcessingRequest = {
+      photoId: validationResult.data.photoId,
+      themeId: validationResult.data.themeId,
+      variantId: validationResult.data.variantId,
+      outputFormat: validationResult.data.outputFormat,
+      userId: validationResult.data.userId,
+      originalImageUrl: validationResult.data.originalImageUrl,
+    };
     
     logger.info('Processing job requested', { 
       photoId: request.photoId?.replace(/[\r\n\t]/g, '') || 'unknown', 

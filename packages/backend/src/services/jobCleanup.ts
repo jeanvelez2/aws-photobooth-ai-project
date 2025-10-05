@@ -49,13 +49,25 @@ export class JobCleanupService {
       logger.info('Starting job cleanup cycle');
 
       // Clean up stuck jobs (jobs processing for more than 30 minutes)
-      await jobQueue.cleanupStuckJobs(30);
+      try {
+        await jobQueue.cleanupStuckJobs(30);
+      } catch (error) {
+        logger.error('Failed to cleanup stuck jobs', { error: error instanceof Error ? error.message : 'Unknown error' });
+      }
 
       // Clean up old failed jobs (older than 24 hours)
-      await this.cleanupOldFailedJobs(24);
+      try {
+        await this.cleanupOldFailedJobs(24);
+      } catch (error) {
+        logger.error('Failed to cleanup old failed jobs', { error: error instanceof Error ? error.message : 'Unknown error' });
+      }
 
       // Log queue statistics
-      await this.logQueueStatistics();
+      try {
+        await this.logQueueStatistics();
+      } catch (error) {
+        logger.error('Failed to log queue statistics', { error: error instanceof Error ? error.message : 'Unknown error' });
+      }
 
       logger.info('Job cleanup cycle completed');
     } catch (error) {

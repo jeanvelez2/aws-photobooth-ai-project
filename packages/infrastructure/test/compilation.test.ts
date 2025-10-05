@@ -2,7 +2,7 @@
  * Simple compilation test to verify CDK infrastructure compiles correctly
  */
 
-import * as assert from 'assert';
+import * as assert from 'node:assert';
 import { PhotoboothStack } from '../src/stacks/photobooth-stack';
 import { CicdStack } from '../src/stacks/cicd-stack';
 import { environments } from '../src/config/environments';
@@ -41,7 +41,7 @@ function runTests() {
 }
 
 // Run tests if this file is executed directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     runTests();
     process.exit(0);

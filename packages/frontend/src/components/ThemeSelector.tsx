@@ -68,16 +68,49 @@ export default function ThemeSelector({
           <div className="relative max-w-md mx-auto">
             <div className="aspect-[3/4] bg-gray-200 rounded-lg overflow-hidden relative">
               {/* Background theme template */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-200 to-pink-200 flex items-center justify-center">
-                <span className="text-gray-600 font-medium">
-                  {selectedTheme.name} Preview
-                </span>
-              </div>
+              {selectedVariant?.templateUrl || selectedTheme.templateUrl ? (
+                <img 
+                  src={selectedVariant?.templateUrl || selectedTheme.templateUrl} 
+                  alt={`${selectedTheme.name} template`}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-200 to-pink-200 flex items-center justify-center">
+                  <span className="text-gray-600 font-medium">
+                    {selectedTheme.name} Preview
+                  </span>
+                </div>
+              )}
               
-              {/* Overlay captured photo placeholder */}
-              <div className="absolute top-4 left-4 w-16 h-16 bg-white rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                <span className="text-xs text-gray-600">Face</span>
-              </div>
+              {/* Overlay captured photo with mask */}
+              {selectedVariant?.faceRegion && (
+                <div 
+                  className="absolute bg-white border-2 border-white shadow-lg overflow-hidden"
+                  style={{
+                    left: `${selectedVariant.faceRegion.x}%`,
+                    top: `${selectedVariant.faceRegion.y}%`,
+                    width: `${selectedVariant.faceRegion.width}%`,
+                    height: `${selectedVariant.faceRegion.height}%`,
+                    transform: `rotate(${selectedVariant.faceRegion.rotation}deg)`
+                  }}
+                >
+                  <img 
+                    src={capturedPhotoUrl} 
+                    alt="Captured face"
+                    className="w-full h-full object-cover"
+                  />
+                  {selectedVariant.blendingMask && (
+                    <img 
+                      src={selectedVariant.blendingMask} 
+                      alt="Blending mask"
+                      className="absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-50"
+                    />
+                  )}
+                </div>
+              )}
               
               {/* Preview info */}
               <div className="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded">
@@ -105,8 +138,18 @@ export default function ThemeSelector({
           >
             {/* Theme Thumbnail */}
             <div className="aspect-[3/4] bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center relative overflow-hidden">
-              {/* Placeholder for actual theme thumbnail */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-pink-100 opacity-80"></div>
+              {theme.thumbnailUrl ? (
+                <img 
+                  src={theme.thumbnailUrl} 
+                  alt={`${theme.name} theme`}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              {/* Fallback overlay */}
+              <div className={`absolute inset-0 bg-gradient-to-br from-purple-100 to-pink-100 ${theme.thumbnailUrl ? 'opacity-20' : 'opacity-80'}`}></div>
               <div className="relative text-center z-10">
                 <div className="w-16 h-16 bg-white rounded-full mx-auto mb-3 flex items-center justify-center shadow-md">
                   <span className="text-2xl font-bold text-gray-600">
@@ -180,7 +223,17 @@ export default function ThemeSelector({
               >
                 {/* Variant Thumbnail */}
                 <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center relative">
-                  <div className="text-center">
+                  {variant.thumbnailUrl ? (
+                    <img 
+                      src={variant.thumbnailUrl} 
+                      alt={`${variant.name} variant`}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`text-center relative z-10 ${variant.thumbnailUrl ? 'bg-black bg-opacity-30 rounded p-1' : ''}`}>
                     <div className="w-8 h-8 bg-white rounded-full mx-auto mb-1 flex items-center justify-center shadow-sm">
                       <span className="text-sm font-bold text-gray-600">
                         {variant.name.charAt(0)}

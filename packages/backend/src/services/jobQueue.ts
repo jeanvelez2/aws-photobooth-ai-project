@@ -209,15 +209,22 @@ export class JobQueue {
       const stuckJobs = await processingJobService.getStuckJobs(olderThanMinutes);
       
       for (const job of stuckJobs) {
-        logger.warn('Cleaning up stuck job', { 
-          jobId: job.jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
-          status: job.status?.replace(/[\r\n\t]/g, '') || 'unknown', 
-          createdAt: job.createdAt 
-        });
-        
-        await processingJobService.updateJobStatus(job.jobId, 'failed', {
-          error: `Job timed out after ${olderThanMinutes} minutes`,
-        });
+        try {
+          logger.warn('Cleaning up stuck job', { 
+            jobId: job.jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
+            status: job.status?.replace(/[\r\n\t]/g, '') || 'unknown', 
+            createdAt: job.createdAt 
+          });
+          
+          await processingJobService.updateJobStatus(job.jobId, 'failed', {
+            error: `Job timed out after ${olderThanMinutes} minutes`,
+          });
+        } catch (jobError) {
+          logger.error('Failed to cleanup individual stuck job', {
+            jobId: job.jobId,
+            error: jobError instanceof Error ? jobError.message : 'Unknown error'
+          });
+        }
       }
       
       if (stuckJobs.length > 0) {
@@ -227,6 +234,7 @@ export class JobQueue {
       logger.error('Failed to cleanup stuck jobs', { 
         error: error instanceof Error ? error.message.replace(/[\r\n\t]/g, '') : 'Unknown error'
       });
+      // Don't throw - allow service to continue running
     }
   }
 

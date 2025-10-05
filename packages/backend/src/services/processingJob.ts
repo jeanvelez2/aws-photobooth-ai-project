@@ -298,29 +298,33 @@ export class ProcessingJobService {
     const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000);
     
     try {
+      // First get all processing jobs
       const result = await dynamoDBDocClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'status-createdAt-index',
-          KeyConditionExpression: '#status = :status AND #createdAt < :cutoffTime',
+          KeyConditionExpression: '#status = :status',
           ExpressionAttributeNames: {
             '#status': 'status',
-            '#createdAt': 'createdAt',
           },
           ExpressionAttributeValues: {
             ':status': 'processing',
-            ':cutoffTime': cutoffTime,
           },
         })
       );
 
-      return (result.Items || []).map(item => {
-        const { ttl, ...job } = item;
-        return job as ProcessingJob;
-      });
+      // Filter by cutoff time in application code
+      const stuckJobs = (result.Items || [])
+        .map(item => {
+          const { ttl, ...job } = item;
+          return job as ProcessingJob;
+        })
+        .filter(job => new Date(job.createdAt) < cutoffTime);
+
+      return stuckJobs;
     } catch (error) {
       logger.error('Failed to get stuck jobs', { error });
-      throw new Error('Failed to retrieve stuck jobs');
+      return []; // Return empty array instead of throwing to prevent startup failures
     }
   }
 }

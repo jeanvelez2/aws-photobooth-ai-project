@@ -57,6 +57,11 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
     return next();
   }
 
+  // Always allow health check endpoints
+  if (req.path.startsWith('/health') || req.path.startsWith('/api/health')) {
+    return next();
+  }
+
   // Always allow all API endpoints - CloudFront handles HTTPS termination
   if (req.path.startsWith('/api/')) {
     return next();
@@ -73,6 +78,11 @@ export const httpsEnforcement = (req: Request, res: Response, next: NextFunction
       ip: (req.ip || 'unknown').replace(/[\r\n\t]/g, ''),
       path: req.path?.replace(/[\r\n\t]/g, '') || 'unknown',
       userAgent: req.get('User-Agent')?.replace(/[\r\n\t]/g, '') || 'unknown',
+      headers: {
+        'x-forwarded-proto': req.headers['x-forwarded-proto'],
+        'x-forwarded-ssl': req.headers['x-forwarded-ssl'],
+        secure: req.secure
+      }
     });
 
     return res.status(426).json({

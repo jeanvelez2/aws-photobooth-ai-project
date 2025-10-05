@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeSelectionPage from './ThemeSelectionPage';
 import { AppProvider } from '../contexts/AppContext';
 import type { Theme, ThemeVariant } from '../types';
@@ -81,12 +82,21 @@ vi.mock('react-router-dom', async () => {
 });
 
 const renderWithProviders = (component: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  
   return render(
-    <BrowserRouter>
-      <AppProvider>
-        {component}
-      </AppProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppProvider>
+          {component}
+        </AppProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 };
 

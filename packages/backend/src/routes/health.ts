@@ -186,6 +186,7 @@ async function checkS3Health(): Promise<HealthCheckResult> {
       responseTime: Date.now() - startTime,
     };
   } catch (error) {
+    logger.warn('S3 client health check failed', { error });
     return {
       service: 'S3',
       status: 'unhealthy',
