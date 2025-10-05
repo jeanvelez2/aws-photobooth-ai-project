@@ -115,9 +115,13 @@ jobs:
         echo "VITE_API_URL=/api" > .env.production
         npm run build
         cd ../..
+        echo "Moving frontend build to root level for consistency..."
+        cp -r packages/frontend/dist ./frontend/
+        echo "Moving backend build to root level for consistency..."
+        cp -r packages/backend/dist ./backend/
         echo "Checking build outputs..."
-        ls -la packages/frontend/dist/ || echo "Frontend dist not found"
-        ls -la packages/backend/dist/ || echo "Backend dist not found"
+        ls -la frontend/dist/ || echo "Frontend dist not found"
+        ls -la backend/dist/ || echo "Backend dist not found"
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
