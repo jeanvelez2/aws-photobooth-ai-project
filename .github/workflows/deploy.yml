@@ -304,6 +304,15 @@ jobs:
       with:
         name: build-artifacts
     
+    - name: Debug downloaded artifacts
+      run: |
+        echo "=== Current directory after artifact download ==="
+        ls -la
+        echo "=== Looking for any HTML/JS files ==="
+        find . -name "*.html" -o -name "*.js" | head -10
+        echo "=== Directory structure ==="
+        find . -type d -name "*frontend*" -o -name "*dist*" | head -10
+    
     # Skip temporary index.html - deploy real frontend instead
     
     - name: Deploy frontend to S3
@@ -317,11 +326,11 @@ jobs:
         echo "Current directory contents:"
         ls -la
         echo "Checking for frontend build artifacts..."
-        ls -la frontend/dist/ || echo "frontend/dist not found"
+        ls -la frontend/ || echo "frontend not found"
         
-        if [ -d "frontend/dist" ] && [ "$(ls -A frontend/dist)" ]; then
+        if [ -d "frontend" ] && [ "$(ls -A frontend)" ]; then
           echo "Deploying frontend build to S3..."
-          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete
+          aws s3 sync frontend/ s3://$BUCKET_NAME/ --delete
           
           # Set correct content types for specific file types
           aws s3 cp s3://$BUCKET_NAME/ s3://$BUCKET_NAME/ --recursive --metadata-directive REPLACE --content-type "text/html" --exclude "*" --include "*.html"
