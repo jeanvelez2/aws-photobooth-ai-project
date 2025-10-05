@@ -8,20 +8,42 @@ const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1
 const docClient = DynamoDBDocumentClient.from(client);
 
 const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev';
+const S3_BUCKET_URL = process.env.S3_BUCKET_URL || 'https://example.com';
+
+// Function to convert relative URLs to absolute S3 URLs
+function makeAbsoluteUrl(relativeUrl: string): string {
+  if (relativeUrl.startsWith('http')) return relativeUrl;
+  return `${S3_BUCKET_URL}${relativeUrl}`;
+}
 
 async function seedThemes() {
   console.log('🌱 Seeding themes to DynamoDB...');
+  console.log(`📦 Using S3 bucket URL: ${S3_BUCKET_URL}`);
   
   try {
     for (const theme of mockThemes) {
+      // Convert relative URLs to absolute S3 URLs
+      const processedTheme = {
+        ...theme,
+        thumbnailUrl: makeAbsoluteUrl(theme.thumbnailUrl),
+        templateUrl: makeAbsoluteUrl(theme.templateUrl),
+        variants: theme.variants.map(variant => ({
+          ...variant,
+          thumbnailUrl: makeAbsoluteUrl(variant.thumbnailUrl),
+          templateUrl: makeAbsoluteUrl(variant.templateUrl),
+          blendingMask: makeAbsoluteUrl(variant.blendingMask)
+        }))
+      };
       const command = new PutCommand({
         TableName: THEMES_TABLE,
         Item: {
-          id: theme.id,
-          name: theme.name,
-          description: theme.description,
-          category: theme.category,
-          variants: theme.variants,
+          id: processedTheme.id,
+          name: processedTheme.name,
+          description: processedTheme.description,
+          category: processedTheme.category,
+          thumbnailUrl: processedTheme.thumbnailUrl,
+          templateUrl: processedTheme.templateUrl,
+          variants: processedTheme.variants,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }

@@ -113,6 +113,7 @@ jobs:
         echo "Building frontend for production..."
         cd packages/frontend
         echo "VITE_API_URL=/api" > .env.production
+        echo "VITE_S3_BUCKET_URL=https://s3.amazonaws.com/PLACEHOLDER_BUCKET" >> .env.production
         npm run build
         cd ../..
         echo "Creating root-level directories..."
@@ -441,11 +442,7 @@ jobs:
           
           echo "Theme assets uploaded successfully"
         else
-          echo "Theme assets directory not found, creating placeholder SVGs"
-          mkdir -p temp-themes
-          echo '<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#8B4513"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Barbarian</text></svg>' > temp-themes/barbarian-thumb.svg
-          aws s3 sync temp-themes/ s3://$BUCKET_NAME/themes/ --content-type "image/svg+xml"
-          rm -rf temp-themes
+          echo "WARNING: Theme assets directory not found - themes will not have images"
         fi
     
     - name: Seed theme data
@@ -465,9 +462,13 @@ jobs:
         echo "Waiting for ECS service to be ready..."
         sleep 60
         
+        echo "Setting S3_BUCKET_URL environment variable for theme seeding..."
+        export S3_BUCKET_URL="https://$BUCKET_NAME.s3.amazonaws.com"
+        
         echo "Attempting theme seeding via ALB..."
         curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
+          -H "X-S3-Bucket-URL: $S3_BUCKET_URL" \
           --max-time 30 \
           --retry 3 \
           --retry-delay 10 || echo "ALB theme seeding failed"
