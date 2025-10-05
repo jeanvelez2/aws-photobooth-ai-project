@@ -359,6 +359,7 @@ export class PhotoboothStack extends cdk.Stack {
                 this.processingJobsTable.tableArn,
                 this.themesTable.tableArn,
                 `${this.processingJobsTable.tableArn}/index/*`,
+                `${this.themesTable.tableArn}/index/*`,
               ],
             }),
             new iam.PolicyStatement({
