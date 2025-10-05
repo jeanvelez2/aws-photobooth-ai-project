@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const docClient = DynamoDBDocumentClient.from(client);
 
-const JOBS_TABLE = process.env.JOBS_TABLE || 'photobooth-processing-jobs-dev';
+const JOBS_TABLE = process.env.PROCESSING_JOBS_TABLE || 'photobooth-processing-jobs-dev';
 
 export class JobQueueService {
   async createJob(imageUrl: string, themeId: string, variantId?: string): Promise<ProcessingJob> {

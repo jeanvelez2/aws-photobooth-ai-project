@@ -6,7 +6,7 @@ import { join } from 'path';
 import { mockThemes } from '../data/mockThemes.js';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-const BUCKET_NAME = process.env.S3_BUCKET || 'ai-photobooth-dev';
+const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'ai-photobooth-dev';
 
 async function uploadThemeAssets() {
   console.log('📤 Uploading theme assets to S3...');

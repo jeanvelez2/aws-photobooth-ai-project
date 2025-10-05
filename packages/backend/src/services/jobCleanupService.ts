@@ -7,8 +7,8 @@ const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 
-const JOBS_TABLE = process.env.JOBS_TABLE || 'photobooth-processing-jobs-dev';
-const S3_BUCKET = process.env.S3_BUCKET || 'ai-photobooth-dev';
+const JOBS_TABLE = process.env.PROCESSING_JOBS_TABLE || 'photobooth-processing-jobs-dev';
+const S3_BUCKET = process.env.S3_BUCKET_NAME || 'ai-photobooth-dev';
 
 export class JobCleanupService {
   async cleanupOldJobs(): Promise<void> {

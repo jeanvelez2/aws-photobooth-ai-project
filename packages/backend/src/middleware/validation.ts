@@ -78,12 +78,18 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
       req.body = sanitizeObject(req.body);
     }
 
-    // Sanitize query and URL parameters
+    // Sanitize query and URL parameters (in-place modification)
     if (req.query && typeof req.query === 'object') {
-      req.query = sanitizeObject(req.query);
+      const sanitizedQuery = sanitizeObject(req.query);
+      // Clear existing properties and add sanitized ones
+      Object.keys(req.query).forEach(key => delete req.query[key]);
+      Object.assign(req.query, sanitizedQuery);
     }
     if (req.params && typeof req.params === 'object') {
-      req.params = sanitizeObject(req.params);
+      const sanitizedParams = sanitizeObject(req.params);
+      // Clear existing properties and add sanitized ones
+      Object.keys(req.params).forEach(key => delete req.params[key]);
+      Object.assign(req.params, sanitizedParams);
     }
 
     logger.debug('Input sanitization completed', { 

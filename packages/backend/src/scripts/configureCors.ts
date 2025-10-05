@@ -3,7 +3,7 @@
 import { S3Client, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-const BUCKET_NAME = process.env.S3_BUCKET || 'ai-photobooth-dev';
+const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'ai-photobooth-dev';
 
 async function configureCors() {
   console.log('🔧 Configuring S3 CORS...');
