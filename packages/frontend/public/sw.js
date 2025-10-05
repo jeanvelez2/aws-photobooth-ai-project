@@ -167,7 +167,8 @@ async function staleWhileRevalidate(request, cacheName) {
 // Helper functions
 
 function isStaticAsset(url) {
-  return url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|gif|ico|woff|woff2|ttf|eot)$/);
+  // Temporarily disable CSS caching to prevent hermesSDK.css errors
+  return url.pathname.match(/\.(js|png|jpg|jpeg|svg|gif|ico|woff|woff2|ttf|eot)$/);
 }
 
 function isAPIRequest(url) {

@@ -124,8 +124,8 @@ jobs:
       with:
         name: build-artifacts
         path: |
-          packages/frontend/dist/
-          packages/backend/dist/
+          frontend/dist/
+          backend/dist/
         retention-days: 1
 
   # Build and push images
@@ -300,11 +300,11 @@ jobs:
         echo "Current directory contents:"
         ls -la
         echo "Checking for frontend build artifacts..."
-        ls -la packages/frontend/dist/ || echo "packages/frontend/dist not found"
+        ls -la frontend/dist/ || echo "frontend/dist not found"
         
-        if [ -d "packages/frontend/dist" ] && [ "$(ls -A packages/frontend/dist)" ]; then
+        if [ -d "frontend/dist" ] && [ "$(ls -A frontend/dist)" ]; then
           echo "Deploying frontend build to S3..."
-          aws s3 sync packages/frontend/dist/ s3://$BUCKET_NAME/ --delete
+          aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete
           
           # Set correct content types for specific file types
           aws s3 cp s3://$BUCKET_NAME/ s3://$BUCKET_NAME/ --recursive --metadata-directive REPLACE --content-type "text/html" --exclude "*" --include "*.html"
