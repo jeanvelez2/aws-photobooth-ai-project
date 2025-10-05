@@ -231,5 +231,4 @@ bld/
 # Application specific
 uploads/
 processed/
-themes/
 *.processed.*

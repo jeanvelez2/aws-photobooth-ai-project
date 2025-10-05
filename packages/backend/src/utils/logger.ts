@@ -26,7 +26,19 @@ const structuredFormat = winston.format.combine(
       }
     });
 
-    return JSON.stringify(logEntry);
+    return JSON.stringify(logEntry, (key, value) => {
+      // Handle circular references
+      if (typeof value === 'object' && value !== null) {
+        if (value.constructor && (value.constructor.name === 'IncomingMessage' || value.constructor.name === 'ClientRequest')) {
+          return '[Circular HTTP Object]';
+        }
+        // Handle other potential circular references
+        if (key === 'req' || key === 'res' || key === 'socket') {
+          return '[Circular Reference]';
+        }
+      }
+      return value;
+    });
   })
 );
 
