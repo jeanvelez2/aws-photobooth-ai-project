@@ -15,8 +15,10 @@ export class JobWorker {
   private isProcessing = false;
 
   async start(): Promise<void> {
-    logger.info('Job worker started');
-    this.processJobs();
+    logger.info('Job worker starting...');
+    // Start processing immediately
+    setImmediate(() => this.processJobs());
+    logger.info('Job worker started successfully');
   }
 
   private async processJobs(): Promise<void> {
@@ -26,8 +28,10 @@ export class JobWorker {
     
     try {
       const pendingJobs = await this.jobQueue.getPendingJobs();
+      logger.info(`Found ${pendingJobs.length} pending jobs`);
       
       for (const job of pendingJobs) {
+        logger.info(`Processing job ${job.jobId}`);
         await this.processJob(job.jobId);
       }
     } catch (error) {
