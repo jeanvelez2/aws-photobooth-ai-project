@@ -95,7 +95,7 @@ export class ProcessingService {
    * Start image processing with error handling and fallback
    */
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
-    const { enableFallback = false, onError } = options;
+    const { enableFallback = true, onError } = options; // Enable fallback by default
     const endpoint = 'process';
     const requestKey = `${request.photoId}-${request.themeId}`;
 
@@ -390,6 +390,13 @@ export class ProcessingService {
           
           // Reset consecutive errors on successful response
           consecutiveErrors = 0;
+          
+          // Debug logging
+          console.log(`Processing status for ${id}:`, {
+            status: result.status,
+            elapsed: elapsed,
+            result: result
+          });
           
           // Update progress based on elapsed time and status
           if (onProgress) {
