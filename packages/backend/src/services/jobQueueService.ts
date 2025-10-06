@@ -67,6 +67,7 @@ export class JobQueueService {
   }
 
   async getPendingJobs(): Promise<ProcessingJob[]> {
+    console.log(`Querying table: ${JOBS_TABLE} for queued jobs`);
     const result = await docClient.send(new ScanCommand({
       TableName: JOBS_TABLE,
       FilterExpression: '#status = :status',
@@ -74,6 +75,7 @@ export class JobQueueService {
       ExpressionAttributeValues: { ':status': 'queued' }
     }));
 
+    console.log(`Found ${result.Items?.length || 0} items in table ${JOBS_TABLE}`);
     return result.Items as ProcessingJob[] || [];
   }
 }
