@@ -69,7 +69,8 @@ const validateCSRF = (req: express.Request, res: express.Response) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:3000',
-    'https://localhost:3000'
+    'https://localhost:3000',
+    'https://d1sb1uvkfiy4hq.cloudfront.net'
   ];
   
   // Allow ALB URLs for deployment scripts
@@ -137,7 +138,8 @@ app.use(cors({
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
-      'https://localhost:3000'
+      'https://localhost:3000',
+      'https://d1sb1uvkfiy4hq.cloudfront.net'
     ];
     
     // Add specific CloudFront distribution if configured

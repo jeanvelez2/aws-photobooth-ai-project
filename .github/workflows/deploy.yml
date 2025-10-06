@@ -463,13 +463,13 @@ jobs:
         echo "Waiting for ECS service to be ready..."
         sleep 60
         
-        echo "Setting S3_BUCKET_URL for theme seeding..."
-        S3_BUCKET_URL="https://$BUCKET_NAME.s3.${{ env.AWS_REGION }}.amazonaws.com"
+        echo "Setting CloudFront URL for theme seeding..."
+        CLOUDFRONT_FULL_URL="https://$CLOUDFRONT_URL"
         
-        echo "Attempting theme seeding via ALB with bucket URL..."
+        echo "Attempting theme seeding via ALB with CloudFront URL..."
         curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
-          -H "X-S3-Bucket-URL: $S3_BUCKET_URL" \
+          -H "X-CloudFront-URL: $CLOUDFRONT_FULL_URL" \
           -H "Origin: $ALB_URL" \
           -H "Referer: $ALB_URL" \
           --max-time 30 \
