@@ -39,7 +39,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
     }
 
     // Get gender-based recommendation
-    const recommendation = genderAdaptiveThemeService.selectVariantByGender(
+    const recommendation = await genderAdaptiveThemeService.selectVariantByGender(
       themeId, 
       faceDetection
     );
@@ -89,7 +89,7 @@ router.get('/variants/:themeId', async (req: Request, res: Response) => {
   try {
     const { themeId } = req.params;
     
-    const variants = genderAdaptiveThemeService.getVariantsByGender(themeId);
+    const variants = await genderAdaptiveThemeService.getVariantsByGender(themeId);
     
     res.json({
       success: true,
@@ -115,7 +115,7 @@ router.get('/variants/:themeId', async (req: Request, res: Response) => {
  */
 router.get('/distribution', async (_req: Request, res: Response) => {
   try {
-    const distribution = genderAdaptiveThemeService.getGenderDistribution();
+    const distribution = await genderAdaptiveThemeService.getGenderDistribution();
     
     res.json({
       success: true,

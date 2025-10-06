@@ -58,7 +58,7 @@ export class JobWorker {
       // Select variant based on gender if not specified
       let variantId = job.variantId;
       if (!variantId && faceData.faces.length > 0) {
-        const selection = this.genderService.selectVariantByGender(theme.id, faceData);
+        const selection = await this.genderService.selectVariantByGender(theme.id, faceData);
         variantId = selection.recommendedVariantId;
       }
       if (!variantId) variantId = theme.variants[0].id;

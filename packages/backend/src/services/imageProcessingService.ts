@@ -64,7 +64,7 @@ export class ImageProcessingService {
       let genderDetection;
       
       if (!selectedVariantId) {
-        const genderSelection = genderAdaptiveThemeService.selectVariantByGender(
+        const genderSelection = await genderAdaptiveThemeService.selectVariantByGender(
           options.themeId, 
           faceDetection
         );
