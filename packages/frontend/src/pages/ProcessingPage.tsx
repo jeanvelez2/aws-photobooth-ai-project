@@ -37,7 +37,20 @@ export default function ProcessingPage() {
 
   // Create processing request when component mounts
   useEffect(() => {
+    console.log('ProcessingPage: Creating request with data:', {
+      hasCurrentPhoto: !!currentPhoto,
+      hasSelectedTheme: !!selectedTheme,
+      photoId: currentPhoto?.id,
+      themeId: selectedTheme?.id,
+      variantId: selectedVariant?.id,
+      hasS3Url: !!(currentPhoto as any)?.s3Url,
+      hasDataUrl: !!currentPhoto?.dataUrl,
+      dataUrlLength: currentPhoto?.dataUrl?.length,
+      s3Url: (currentPhoto as any)?.s3Url
+    });
+
     if (!currentPhoto || !selectedTheme) {
+      console.log('ProcessingPage: Missing required data, redirecting');
       // Redirect to appropriate page if missing required data
       if (!currentPhoto) {
         navigate('/');
@@ -47,28 +60,60 @@ export default function ProcessingPage() {
       return;
     }
 
-    // Create processing request
+    // Create processing request with proper S3 URL
+    const originalImageUrl = (currentPhoto as any).s3Url || currentPhoto.dataUrl;
     const request: ProcessingRequest = {
       photoId: currentPhoto.id,
       themeId: selectedTheme.id,
       variantId: selectedVariant?.id,
       outputFormat: 'jpeg',
-      originalImageUrl: currentPhoto.dataUrl, // This will be replaced with S3 URL in real implementation
+      originalImageUrl, // Use S3 URL if available
     };
+
+    console.log('ProcessingPage: Created request:', {
+      ...request,
+      originalImageUrl: originalImageUrl?.substring(0, 100) + '...' // Truncate for logging
+    });
 
     setProcessingRequest(request);
   }, [currentPhoto, selectedTheme, selectedVariant, navigate]);
 
   // Start processing when request is ready (with deduplication)
   useEffect(() => {
+    console.log('ProcessingPage: Processing effect triggered:', {
+      hasProcessingRequest: !!processingRequest,
+      isProcessing,
+      hasResult: !!result,
+      hasError: !!error,
+      requestData: processingRequest ? {
+        photoId: processingRequest.photoId,
+        themeId: processingRequest.themeId,
+        variantId: processingRequest.variantId,
+        originalImageUrlType: processingRequest.originalImageUrl?.startsWith('data:') ? 'dataUrl' : 'httpUrl',
+        originalImageUrlLength: processingRequest.originalImageUrl?.length
+      } : null
+    });
+
     if (processingRequest && !isProcessing && !result && !error) {
       // Prevent duplicate requests by checking if we already have this request
       const requestKey = `${processingRequest.photoId}-${processingRequest.themeId}`;
       const lastRequestKey = sessionStorage.getItem('lastProcessingRequest');
       
+      console.log('ProcessingPage: Checking deduplication:', {
+        requestKey,
+        lastRequestKey,
+        shouldStart: lastRequestKey !== requestKey
+      });
+      
       if (lastRequestKey !== requestKey) {
+        console.log('ProcessingPage: Starting processing with request:', {
+          ...processingRequest,
+          originalImageUrl: processingRequest.originalImageUrl?.substring(0, 50) + '...'
+        });
         sessionStorage.setItem('lastProcessingRequest', requestKey);
         startProcessing(processingRequest);
+      } else {
+        console.log('ProcessingPage: Skipping duplicate request');
       }
     }
   }, [processingRequest, isProcessing, result, error, startProcessing]);

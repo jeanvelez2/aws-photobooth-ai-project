@@ -149,13 +149,12 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
         action: 'processImage',
       });
       
-      // Don't retry validation errors (4xx) or other client errors
-      const isClientError = err instanceof Error && 'status' in err && 
-        typeof (err as any).status === 'number' && 
-        (err as any).status >= 400 && (err as any).status < 500;
+      // Don't retry validation errors (4xx) or network resource errors
+      const isNetworkResourceError = err instanceof TypeError && err.message.includes('ERR_INSUFFICIENT_RESOURCES');
+      const isValidationError = err instanceof Error && err.message.includes('400');
       
-      // Only set error if we've exceeded max retries, it's not retryable, or it's a client error
-      if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable || isClientError) {
+      // Only set error if we've exceeded max retries, it's not retryable, or it's a client/network error
+      if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable || isNetworkResourceError || isValidationError) {
         setError(processingError);
         dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
         options.onError?.(processingError);
