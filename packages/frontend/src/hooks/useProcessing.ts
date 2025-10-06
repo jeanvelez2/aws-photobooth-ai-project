@@ -149,13 +149,18 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
         action: 'processImage',
       });
       
-      // Only set error if we've exceeded max retries or it's not retryable
-      if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable) {
+      // Don't retry validation errors (4xx) or other client errors
+      const isClientError = err instanceof Error && 'status' in err && 
+        typeof (err as any).status === 'number' && 
+        (err as any).status >= 400 && (err as any).status < 500;
+      
+      // Only set error if we've exceeded max retries, it's not retryable, or it's a client error
+      if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable || isClientError) {
         setError(processingError);
         dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
         options.onError?.(processingError);
       } else {
-        // Auto-retry with exponential backoff
+        // Auto-retry with exponential backoff for server errors only
         const backoffDelay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 10000);
         console.log(`Auto-retrying in ${backoffDelay}ms...`);
         setTimeout(() => {
