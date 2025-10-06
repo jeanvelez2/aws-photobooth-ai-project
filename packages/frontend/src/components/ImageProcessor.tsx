@@ -183,10 +183,19 @@ export default function ImageProcessor({
     onCancel?.();
   }, [abortController, processingResult?.id, onCancel]);
 
-  // Start processing on mount
+  // Start processing on mount (only once)
   useEffect(() => {
-    startProcessing();
-  }, [startProcessing]);
+    let mounted = true;
+    const start = async () => {
+      if (mounted) {
+        await startProcessing();
+      }
+    };
+    start();
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty dependency array to run only once
 
   // Calculate estimated time remaining
   const getEstimatedTimeRemaining = () => {

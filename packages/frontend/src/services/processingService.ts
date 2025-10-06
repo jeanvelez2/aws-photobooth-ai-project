@@ -25,6 +25,7 @@ export class ProcessingService {
   private readonly circuitBreaker = new Map<string, { failures: number; lastFailure: number; isOpen: boolean }>();
   private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
   private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
+  private readonly activeRequests = new Set<string>(); // Track active requests
 
   constructor(apiBaseUrl?: string) {
     this.API_BASE_URL = apiBaseUrl || import.meta.env.VITE_API_URL || '/api';
@@ -37,10 +38,12 @@ export class ProcessingService {
     if (circuit.isOpen) {
       const now = Date.now();
       if (now - circuit.lastFailure > this.CIRCUIT_BREAKER_TIMEOUT) {
+        console.log(`Circuit breaker reset for ${endpoint}`);
         circuit.isOpen = false;
         circuit.failures = 0;
         return true;
       }
+      console.log(`Circuit breaker is open for ${endpoint}, blocking request`);
       return false;
     }
     return true;
@@ -63,22 +66,75 @@ export class ProcessingService {
   }
 
   /**
+   * Reset circuit breaker for manual retry
+   */
+  resetCircuitBreaker(endpoint: string = 'process'): void {
+    console.log(`Manually resetting circuit breaker for ${endpoint}`);
+    this.circuitBreaker.delete(endpoint);
+    // Also clear active requests to allow retries
+    this.activeRequests.clear();
+  }
+
+  /**
+   * Test backend connectivity
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('Backend connectivity test failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Start image processing with error handling and fallback
    */
   async startProcessing(request: ProcessingRequest, options: ProcessingOptions = {}): Promise<ProcessingResult> {
     const { enableFallback = false, onError } = options;
     const endpoint = 'process';
+    const requestKey = `${request.photoId}-${request.themeId}`;
 
-    // Check circuit breaker
-    if (!this.checkCircuitBreaker(endpoint)) {
+    // Prevent duplicate requests
+    if (this.activeRequests.has(requestKey)) {
       const error = errorService.createError(
-        ProcessingErrorType.SERVICE_UNAVAILABLE,
-        new Error('Service temporarily unavailable due to repeated failures'),
+        ProcessingErrorType.INTERNAL_ERROR,
+        new Error('A processing request for this photo and theme is already in progress'),
         { component: 'ProcessingService', action: 'startProcessing' }
       );
       onError?.(error);
       throw error;
     }
+
+    this.activeRequests.add(requestKey);
+
+    try {
+      // Check circuit breaker
+      if (!this.checkCircuitBreaker(endpoint)) {
+        // Test if backend is actually available before throwing error
+        const isBackendAvailable = await this.testConnection();
+        if (isBackendAvailable) {
+          // Backend is available, reset circuit breaker
+          console.log('Backend is available, resetting circuit breaker');
+          this.resetCircuitBreaker(endpoint);
+        } else {
+          const error = errorService.createError(
+            ProcessingErrorType.SERVICE_UNAVAILABLE,
+            new Error('Service temporarily unavailable due to repeated failures. The backend service appears to be down.'),
+            { 
+              component: 'ProcessingService', 
+              action: 'startProcessing',
+              canReset: true
+            }
+          );
+          onError?.(error);
+          throw error;
+        }
+      }
 
     try {
       // Validate executor functions before execution
@@ -135,6 +191,8 @@ export class ProcessingService {
         
         this.recordSuccess(endpoint);
         return result;
+      } finally {
+        this.activeRequests.delete(requestKey);
       };
       
       const safeFallbackExecutor = enableFallback ? async () => {
@@ -188,6 +246,8 @@ export class ProcessingService {
       });
       onError?.(processedError);
       throw processedError;
+    } finally {
+      this.activeRequests.delete(requestKey);
     }
   }
 

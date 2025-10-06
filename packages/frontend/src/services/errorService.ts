@@ -134,6 +134,13 @@ export class ErrorService {
   }
 
   /**
+   * Reset all retry attempts (for connection reset)
+   */
+  resetAllRetryAttempts(): void {
+    this.retryAttempts.clear();
+  }
+
+  /**
    * Get error recovery actions based on error type and context
    */
   getRecoveryActions(error: ProcessingError, context?: any): RecoveryAction[] {
@@ -164,6 +171,16 @@ export class ErrorService {
         type: 'selectTheme',
         label: 'Choose Different Theme',
         description: 'Select another theme',
+        primary: true,
+      });
+    }
+
+    // Add reset connection for service unavailable errors
+    if (error.type === ProcessingErrorType.SERVICE_UNAVAILABLE && context?.canReset) {
+      contextualActions.unshift({
+        type: 'resetConnection',
+        label: 'Reset Connection',
+        description: 'Reset the service connection',
         primary: true,
       });
     }
@@ -376,15 +393,17 @@ export class ErrorService {
       },
       [ProcessingErrorType.SERVICE_UNAVAILABLE]: {
         message: 'Service temporarily unavailable',
-        userMessage: 'The service is temporarily unavailable. Please try again later.',
+        userMessage: 'The service is temporarily unavailable due to repeated failures. You can wait a minute or reset the connection.',
         retryable: true,
         severity: 'high',
         suggestions: [
-          'Try again in a few minutes',
-          'Check if there are any service announcements',
+          'Wait a minute for the connection to reset automatically',
+          'Try resetting the connection manually',
+          'Check your internet connection',
         ],
         recoveryActions: [
-          { type: 'retry', label: 'Try Again', primary: true },
+          { type: 'resetConnection', label: 'Reset Connection', primary: true },
+          { type: 'retry', label: 'Try Again' },
         ],
       },
       [ProcessingErrorType.RATE_LIMITED]: {

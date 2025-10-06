@@ -29,7 +29,7 @@ export interface ProcessingError {
 }
 
 export interface RecoveryAction {
-  type: 'retry' | 'goBack' | 'startOver' | 'selectTheme' | 'retakePhoto' | 'refresh' | 'contact';
+  type: 'retry' | 'goBack' | 'startOver' | 'selectTheme' | 'retakePhoto' | 'refresh' | 'contact' | 'resetConnection';
   label: string;
   description?: string;
   primary?: boolean;

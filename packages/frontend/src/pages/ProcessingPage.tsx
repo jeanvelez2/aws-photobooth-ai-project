@@ -4,6 +4,8 @@ import { useAppContext, useAppState } from '../contexts/AppContext';
 import ImageProcessor from '../components/ImageProcessor';
 import ProcessingError from '../components/ProcessingError';
 import { useProcessing } from '../hooks/useProcessing';
+import { processingService } from '../services/processingService';
+import { errorService } from '../services/errorService';
 import type { ProcessingRequest } from '../types';
 
 export default function ProcessingPage() {
@@ -83,20 +85,8 @@ export default function ProcessingPage() {
     setProcessingRequest(request);
   }, [currentPhoto, selectedTheme, selectedVariant, navigate]);
 
-  // Start processing when request is ready (with deduplication)
-  useEffect(() => {
-    if (processingRequest && !processingStartedRef.current && !isProcessing && !result && !error) {
-      console.log('ProcessingPage: Starting processing with request:', {
-        photoId: processingRequest.photoId,
-        themeId: processingRequest.themeId,
-        variantId: processingRequest.variantId,
-        originalImageUrlType: processingRequest.originalImageUrl?.startsWith('data:') ? 'dataUrl' : 'httpUrl'
-      });
-      
-      processingStartedRef.current = true;
-      startProcessing(processingRequest);
-    }
-  }, [processingRequest, isProcessing, result, error, startProcessing]);
+  // Don't start processing here - let ImageProcessor handle it
+  // This prevents duplicate requests that trigger the circuit breaker
   
   // Reset processing started flag when component unmounts or resets
   useEffect(() => {
@@ -112,11 +102,18 @@ export default function ProcessingPage() {
   };
 
   const handleRetry = () => {
-    clearError();
+    // Reset and reload the page to start fresh
     processingStartedRef.current = false;
-    if (processingRequest) {
-      startProcessing(processingRequest);
-    }
+    window.location.reload();
+  };
+
+  const handleResetConnection = () => {
+    // Reset circuit breaker and retry attempts
+    processingService.resetCircuitBreaker();
+    errorService.resetAllRetryAttempts();
+    processingStartedRef.current = false;
+    // Reload page to start fresh
+    window.location.reload();
   };
 
   const handleStartOver = () => {
@@ -141,6 +138,13 @@ export default function ProcessingPage() {
           onRetry={error.retryable ? handleRetry : undefined}
           onStartOver={handleStartOver}
           onGoBack={handleGoBack}
+          onResetConnection={error.type === 'SERVICE_UNAVAILABLE' ? handleResetConnection : undefined}
+          context={{
+            hasPhoto: !!currentPhoto,
+            hasTheme: !!selectedTheme,
+            component: 'ProcessingPage',
+            canReset: error.type === 'SERVICE_UNAVAILABLE'
+          }}
         />
       </div>
     );
@@ -151,12 +155,8 @@ export default function ProcessingPage() {
     return (
       <ImageProcessor
         request={processingRequest}
-        onComplete={(result) => {
-          // This is handled by the useProcessing hook
-        }}
-        onError={(error) => {
-          // This is handled by the useProcessing hook
-        }}
+        onComplete={onComplete}
+        onError={onError}
         onCancel={handleCancel}
       />
     );
