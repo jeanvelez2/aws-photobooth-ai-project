@@ -470,16 +470,11 @@ jobs:
         curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
           -H "X-S3-Bucket-URL: $S3_BUCKET_URL" \
+          -H "Origin: $ALB_URL" \
+          -H "Referer: $ALB_URL" \
           --max-time 30 \
           --retry 3 \
           --retry-delay 10 || echo "ALB theme seeding failed"
-        
-        echo "Attempting theme seeding via CloudFront..."
-        curl -X POST "https://$CLOUDFRONT_URL/api/themes/seed" \
-          -H "Content-Type: application/json" \
-          --max-time 30 \
-          --retry 3 \
-          --retry-delay 10 || echo "CloudFront theme seeding failed"
     
     - name: Ensure ECS service is running
       run: |

@@ -72,6 +72,12 @@ const validateCSRF = (req: express.Request, res: express.Response) => {
     'https://localhost:3000'
   ];
   
+  // Allow ALB URLs for deployment scripts
+  const albPattern = /^https?:\/\/photobooth-alb-[a-z]+-\d+\.[a-z0-9-]+\.elb\.amazonaws\.com$/;
+  if (origin && albPattern.test(origin)) {
+    allowedOrigins.push(origin);
+  }
+  
   if (!origin && !referer) {
     return res.status(403).json({
       error: 'CSRF protection: Missing origin/referer headers',
@@ -139,6 +145,12 @@ app.use(cors({
       allowedOrigins.push(`https://${process.env.CLOUDFRONT_DOMAIN}`);
     }
     
+    // Allow ALB URLs for deployment scripts
+    const albPattern = /^https?:\/\/photobooth-alb-[a-z]+-\d+\.[a-z0-9-]+\.elb\.amazonaws\.com$/;
+    if (origin && albPattern.test(origin)) {
+      allowedOrigins.push(origin);
+    }
+    
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
@@ -151,7 +163,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-S3-Bucket-URL'],
 }));
 
 // Progressive rate limiting (checks for suspicious IPs first)
