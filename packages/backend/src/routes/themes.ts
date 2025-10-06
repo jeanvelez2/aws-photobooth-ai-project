@@ -52,12 +52,12 @@ router.get('/category/:category',
   }
 );
 
-// POST /api/themes/seed - Seed themes with optional bucket URL
+// POST /api/themes/seed - Seed themes with optional CloudFront URL
 router.post('/seed', async (req, res) => {
   try {
-    const bucketUrl = req.headers['x-s3-bucket-url'] as string;
-    await seedThemes(bucketUrl);
-    res.json({ message: 'Themes seeded successfully', bucketUrl });
+    const cloudFrontUrl = req.headers['x-cloudfront-url'] as string;
+    await seedThemes(cloudFrontUrl);
+    res.json({ message: 'Themes seeded successfully', cloudFrontUrl });
   } catch (error) {
     console.error('Error seeding themes:', error);
     res.status(500).json({ error: 'Failed to seed themes' });
