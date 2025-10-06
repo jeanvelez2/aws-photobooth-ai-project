@@ -21,7 +21,7 @@ export interface ProcessingOptions {
 export class ProcessingService {
   private readonly API_BASE_URL: string;
   private readonly POLLING_INTERVAL = 2000; // 2 seconds
-  private readonly MAX_PROCESSING_TIME = 30000; // 30 seconds
+  private readonly MAX_PROCESSING_TIME = 60000; // 60 seconds
   private readonly circuitBreaker = new Map<string, { failures: number; lastFailure: number; isOpen: boolean }>();
   private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
   private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
@@ -364,7 +364,18 @@ export class ProcessingService {
           // Check timeout
           const elapsed = Date.now() - startTime;
           if (elapsed > this.MAX_PROCESSING_TIME) {
-            const error = errorService.createError(ProcessingErrorType.PROCESSING_TIMEOUT, new Error('Processing timeout'), {
+            // Try to get final status before timing out
+            try {
+              const finalResult = await this.getProcessingStatus(id, { onError });
+              if (finalResult.status === 'completed') {
+                resolve(finalResult);
+                return;
+              }
+            } catch (e) {
+              console.warn('Failed to get final status before timeout:', e);
+            }
+            
+            const error = errorService.createError(ProcessingErrorType.PROCESSING_TIMEOUT, new Error(`Processing timeout after ${elapsed}ms. Backend may be overloaded.`), {
               component: 'ProcessingService',
               action: 'pollProcessingStatus',
               jobId: id,

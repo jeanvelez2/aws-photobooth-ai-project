@@ -351,15 +351,17 @@ export class ErrorService {
       },
       [ProcessingErrorType.PROCESSING_TIMEOUT]: {
         message: 'Processing took too long',
-        userMessage: 'Processing is taking longer than expected. Please try again.',
+        userMessage: 'Processing is taking longer than expected. The backend service may be overloaded.',
         retryable: true,
         severity: 'high',
         suggestions: [
-          'Check your internet connection',
-          'Try again in a few moments',
+          'Wait a few minutes and try again',
+          'Try with a smaller or clearer image',
+          'Check if the backend service is running',
         ],
         recoveryActions: [
           { type: 'retry', label: 'Try Again', primary: true },
+          { type: 'startOver', label: 'Start Over' },
         ],
       },
       [ProcessingErrorType.THEME_NOT_FOUND]: {
@@ -393,7 +395,7 @@ export class ErrorService {
       },
       [ProcessingErrorType.SERVICE_UNAVAILABLE]: {
         message: 'Service temporarily unavailable',
-        userMessage: 'The service is temporarily unavailable due to repeated failures. You can wait a minute or reset the connection.',
+        userMessage: 'The backend service is unavailable. This usually means the server is down or not responding.',
         retryable: true,
         severity: 'high',
         suggestions: [
