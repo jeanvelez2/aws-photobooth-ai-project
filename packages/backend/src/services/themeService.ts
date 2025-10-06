@@ -7,7 +7,7 @@ const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1
 const docClient = DynamoDBDocumentClient.from(client);
 
 const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev';
-const USE_MOCK_DATA = process.env.NODE_ENV === 'development' && !process.env.AWS_ACCESS_KEY_ID;
+const USE_MOCK_DATA = process.env.NODE_ENV === 'development';
 
 export class ThemeService {
   async getAllThemes(): Promise<Theme[]> {

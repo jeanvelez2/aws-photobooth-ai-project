@@ -22,7 +22,9 @@ function getS3BucketUrl(bucketUrlParam?: string): string {
 // Function to convert relative URLs to absolute S3 URLs
 function makeAbsoluteUrl(relativeUrl: string, bucketUrl: string): string {
   if (relativeUrl.startsWith('http')) return relativeUrl;
-  return `${bucketUrl}${relativeUrl}`;
+  // Remove leading slash from relative URL to avoid double slashes
+  const cleanRelativeUrl = relativeUrl.startsWith('/') ? relativeUrl.slice(1) : relativeUrl;
+  return `${bucketUrl}/${cleanRelativeUrl}`;
 }
 
 async function seedThemes(bucketUrlParam?: string) {

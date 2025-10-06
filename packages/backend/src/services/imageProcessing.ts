@@ -656,7 +656,7 @@ export class ImageProcessingPipeline {
     // Validate URL format and prevent path traversal
     try {
       const url = new URL(sanitizedUrl);
-      // Only allow specific trusted domains (add your S3 bucket domain here)
+      // Only allow specific trusted domains
       const allowedDomains = ['s3.amazonaws.com', 'amazonaws.com'];
       const isAllowedDomain = allowedDomains.some(domain => 
         url.hostname.endsWith(domain)
@@ -679,18 +679,32 @@ export class ImageProcessingPipeline {
     
     logger.info('Loading theme template', { templateUrl: sanitizedUrl });
     
-    // This would be replaced with actual S3 fetch in production
-    // For now, create a simple mock template buffer
-    const mockTemplate = await sharp({
-      create: {
-        width: 800,
-        height: 1200,
-        channels: 4,
-        background: { r: 100, g: 150, b: 200, alpha: 1 }
+    try {
+      // Fetch the template from the URL
+      const response = await fetch(sanitizedUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    }).png().toBuffer();
-    
-    return mockTemplate;
+      
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (fetchError) {
+      logger.error('Failed to fetch theme template', {
+        templateUrl: sanitizedUrl,
+        error: fetchError instanceof Error ? fetchError.message : 'Unknown error'
+      });
+      
+      // Fallback to mock template if fetch fails
+      logger.warn('Using mock template as fallback');
+      return await sharp({
+        create: {
+          width: 800,
+          height: 1200,
+          channels: 4,
+          background: { r: 100, g: 150, b: 200, alpha: 1 }
+        }
+      }).png().toBuffer();
+    }
   }
 
   private extractKeyLandmarks(landmarks: FacialLandmark[]) {

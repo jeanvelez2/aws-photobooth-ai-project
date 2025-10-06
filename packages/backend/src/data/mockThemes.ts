@@ -6,15 +6,15 @@ export const mockThemes: Theme[] = [
     name: 'Barbarian',
     description: 'Fierce warrior from ancient times with rugged armor and battle-worn weapons',
     category: 'fantasy',
-    thumbnailUrl: '/themes/barbarian-thumb.svg',
-    templateUrl: '/themes/barbarian-template.jpg',
+    thumbnailUrl: 'themes/barbarian-thumb.svg',
+    templateUrl: 'themes/barbarian-template.jpg',
     variants: [
       {
         id: 'barbarian-warrior',
         name: 'Warrior',
         description: 'Classic barbarian warrior with sword and shield',
-        thumbnailUrl: '/themes/barbarian-warrior-thumb.svg',
-        templateUrl: '/themes/barbarian-warrior-template.jpg',
+        thumbnailUrl: 'themes/barbarian-warrior-thumb.svg',
+        templateUrl: 'themes/barbarian-warrior-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.35,
@@ -23,7 +23,7 @@ export const mockThemes: Theme[] = [
           height: 0.35,
           rotation: 0
         },
-        blendingMask: '/themes/barbarian-warrior-mask.png',
+        blendingMask: 'themes/barbarian-warrior-mask.png',
         colorAdjustments: {
           brightness: 1.1,
           contrast: 1.2,
@@ -35,8 +35,8 @@ export const mockThemes: Theme[] = [
         id: 'barbarian-berserker',
         name: 'Berserker',
         description: 'Wild berserker with dual axes and fierce expression',
-        thumbnailUrl: '/themes/barbarian-berserker-thumb.jpg',
-        templateUrl: '/themes/barbarian-berserker-template.jpg',
+        thumbnailUrl: 'themes/barbarian-berserker-thumb.jpg',
+        templateUrl: 'themes/barbarian-berserker-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.4,
@@ -45,7 +45,7 @@ export const mockThemes: Theme[] = [
           height: 0.3,
           rotation: -5
         },
-        blendingMask: '/themes/barbarian-berserker-mask.png',
+        blendingMask: 'themes/barbarian-berserker-mask.png',
         colorAdjustments: {
           brightness: 1.0,
           contrast: 1.3,
@@ -57,8 +57,8 @@ export const mockThemes: Theme[] = [
         id: 'barbarian-chieftain',
         name: 'Chieftain',
         description: 'Noble barbarian leader with ceremonial armor',
-        thumbnailUrl: '/themes/barbarian-chieftain-thumb.jpg',
-        templateUrl: '/themes/barbarian-chieftain-template.jpg',
+        thumbnailUrl: 'themes/barbarian-chieftain-thumb.jpg',
+        templateUrl: 'themes/barbarian-chieftain-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.38,
@@ -67,7 +67,7 @@ export const mockThemes: Theme[] = [
           height: 0.32,
           rotation: 2
         },
-        blendingMask: '/themes/barbarian-chieftain-mask.png',
+        blendingMask: 'themes/barbarian-chieftain-mask.png',
         colorAdjustments: {
           brightness: 1.15,
           contrast: 1.1,
@@ -82,15 +82,15 @@ export const mockThemes: Theme[] = [
     name: 'Greek',
     description: 'Classical Greek mythology style with togas, laurels, and marble columns',
     category: 'mythology',
-    thumbnailUrl: '/themes/greek-thumb.svg',
-    templateUrl: '/themes/greek-template.jpg',
+    thumbnailUrl: 'themes/greek-thumb.svg',
+    templateUrl: 'themes/greek-template.jpg',
     variants: [
       {
         id: 'greek-philosopher',
         name: 'Philosopher',
         description: 'Wise Greek philosopher with toga and scroll',
-        thumbnailUrl: '/themes/greek-philosopher-thumb.jpg',
-        templateUrl: '/themes/greek-philosopher-template.jpg',
+        thumbnailUrl: 'themes/greek-philosopher-thumb.jpg',
+        templateUrl: 'themes/greek-philosopher-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.42,
@@ -99,7 +99,7 @@ export const mockThemes: Theme[] = [
           height: 0.3,
           rotation: 0
         },
-        blendingMask: '/themes/greek-philosopher-mask.png',
+        blendingMask: 'themes/greek-philosopher-mask.png',
         colorAdjustments: {
           brightness: 1.2,
           contrast: 1.0,
@@ -111,8 +111,8 @@ export const mockThemes: Theme[] = [
         id: 'greek-goddess',
         name: 'Goddess',
         description: 'Divine Greek goddess with flowing robes and golden accessories',
-        thumbnailUrl: '/themes/greek-goddess-thumb.jpg',
-        templateUrl: '/themes/greek-goddess-template.jpg',
+        thumbnailUrl: 'themes/greek-goddess-thumb.jpg',
+        templateUrl: 'themes/greek-goddess-template.jpg',
         gender: 'Female',
         faceRegion: {
           x: 0.4,
@@ -121,7 +121,7 @@ export const mockThemes: Theme[] = [
           height: 0.33,
           rotation: 3
         },
-        blendingMask: '/themes/greek-goddess-mask.png',
+        blendingMask: 'themes/greek-goddess-mask.png',
         colorAdjustments: {
           brightness: 1.25,
           contrast: 0.95,
@@ -133,8 +133,8 @@ export const mockThemes: Theme[] = [
         id: 'greek-hero',
         name: 'Hero',
         description: 'Legendary Greek hero with bronze armor and spear',
-        thumbnailUrl: '/themes/greek-hero-thumb.jpg',
-        templateUrl: '/themes/greek-hero-template.jpg',
+        thumbnailUrl: 'themes/greek-hero-thumb.jpg',
+        templateUrl: 'themes/greek-hero-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.36,
@@ -143,7 +143,7 @@ export const mockThemes: Theme[] = [
           height: 0.36,
           rotation: -2
         },
-        blendingMask: '/themes/greek-hero-mask.png',
+        blendingMask: 'themes/greek-hero-mask.png',
         colorAdjustments: {
           brightness: 1.1,
           contrast: 1.15,
@@ -158,15 +158,15 @@ export const mockThemes: Theme[] = [
     name: 'Mystic',
     description: 'Magical and mysterious atmosphere with crystals, potions, and ethereal effects',
     category: 'magic',
-    thumbnailUrl: '/themes/mystic-thumb.svg',
-    templateUrl: '/themes/mystic-template.jpg',
+    thumbnailUrl: 'themes/mystic-thumb.svg',
+    templateUrl: 'themes/mystic-template.jpg',
     variants: [
       {
         id: 'mystic-wizard',
         name: 'Wizard',
         description: 'Powerful wizard with staff and flowing robes',
-        thumbnailUrl: '/themes/mystic-wizard-thumb.jpg',
-        templateUrl: '/themes/mystic-wizard-template.jpg',
+        thumbnailUrl: 'themes/mystic-wizard-thumb.jpg',
+        templateUrl: 'themes/mystic-wizard-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.38,
@@ -175,7 +175,7 @@ export const mockThemes: Theme[] = [
           height: 0.31,
           rotation: 0
         },
-        blendingMask: '/themes/mystic-wizard-mask.png',
+        blendingMask: 'themes/mystic-wizard-mask.png',
         colorAdjustments: {
           brightness: 0.95,
           contrast: 1.2,
@@ -187,8 +187,8 @@ export const mockThemes: Theme[] = [
         id: 'mystic-sorceress',
         name: 'Sorceress',
         description: 'Enchanting sorceress with magical aura and crystal orb',
-        thumbnailUrl: '/themes/mystic-sorceress-thumb.jpg',
-        templateUrl: '/themes/mystic-sorceress-template.jpg',
+        thumbnailUrl: 'themes/mystic-sorceress-thumb.jpg',
+        templateUrl: 'themes/mystic-sorceress-template.jpg',
         gender: 'Female',
         faceRegion: {
           x: 0.41,
@@ -197,7 +197,7 @@ export const mockThemes: Theme[] = [
           height: 0.32,
           rotation: 4
         },
-        blendingMask: '/themes/mystic-sorceress-mask.png',
+        blendingMask: 'themes/mystic-sorceress-mask.png',
         colorAdjustments: {
           brightness: 1.05,
           contrast: 1.1,
@@ -209,8 +209,8 @@ export const mockThemes: Theme[] = [
         id: 'mystic-oracle',
         name: 'Oracle',
         description: 'Mystical oracle surrounded by swirling energy and ancient symbols',
-        thumbnailUrl: '/themes/mystic-oracle-thumb.jpg',
-        templateUrl: '/themes/mystic-oracle-template.jpg',
+        thumbnailUrl: 'themes/mystic-oracle-thumb.jpg',
+        templateUrl: 'themes/mystic-oracle-template.jpg',
         gender: 'Female',
         faceRegion: {
           x: 0.39,
@@ -219,7 +219,7 @@ export const mockThemes: Theme[] = [
           height: 0.29,
           rotation: -3
         },
-        blendingMask: '/themes/mystic-oracle-mask.png',
+        blendingMask: 'themes/mystic-oracle-mask.png',
         colorAdjustments: {
           brightness: 1.0,
           contrast: 1.25,
@@ -234,15 +234,15 @@ export const mockThemes: Theme[] = [
     name: 'Anime',
     description: 'Japanese animation style with vibrant colors and dynamic poses',
     category: 'anime',
-    thumbnailUrl: '/themes/anime-thumb.svg',
-    templateUrl: '/themes/anime-template.jpg',
+    thumbnailUrl: 'themes/anime-thumb.svg',
+    templateUrl: 'themes/anime-template.jpg',
     variants: [
       {
         id: 'anime-ninja',
         name: 'Ninja',
         description: 'Stealthy ninja with traditional garb and weapons',
-        thumbnailUrl: '/themes/anime-ninja-thumb.jpg',
-        templateUrl: '/themes/anime-ninja-template.jpg',
+        thumbnailUrl: 'themes/anime-ninja-thumb.jpg',
+        templateUrl: 'themes/anime-ninja-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.37,
@@ -251,7 +251,7 @@ export const mockThemes: Theme[] = [
           height: 0.33,
           rotation: -1
         },
-        blendingMask: '/themes/anime-ninja-mask.png',
+        blendingMask: 'themes/anime-ninja-mask.png',
         colorAdjustments: {
           brightness: 1.0,
           contrast: 1.3,
@@ -263,8 +263,8 @@ export const mockThemes: Theme[] = [
         id: 'anime-samurai',
         name: 'Samurai',
         description: 'Honor-bound samurai warrior with katana and traditional armor',
-        thumbnailUrl: '/themes/anime-samurai-thumb.jpg',
-        templateUrl: '/themes/anime-samurai-template.jpg',
+        thumbnailUrl: 'themes/anime-samurai-thumb.jpg',
+        templateUrl: 'themes/anime-samurai-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.35,
@@ -273,7 +273,7 @@ export const mockThemes: Theme[] = [
           height: 0.35,
           rotation: 2
         },
-        blendingMask: '/themes/anime-samurai-mask.png',
+        blendingMask: 'themes/anime-samurai-mask.png',
         colorAdjustments: {
           brightness: 1.1,
           contrast: 1.2,
@@ -285,8 +285,8 @@ export const mockThemes: Theme[] = [
         id: 'anime-mage',
         name: 'Mage',
         description: 'Powerful anime mage with elemental magic and staff',
-        thumbnailUrl: '/themes/anime-mage-thumb.jpg',
-        templateUrl: '/themes/anime-mage-template.jpg',
+        thumbnailUrl: 'themes/anime-mage-thumb.jpg',
+        templateUrl: 'themes/anime-mage-template.jpg',
         gender: 'Male',
         faceRegion: {
           x: 0.4,
@@ -295,7 +295,7 @@ export const mockThemes: Theme[] = [
           height: 0.3,
           rotation: 0
         },
-        blendingMask: '/themes/anime-mage-mask.png',
+        blendingMask: 'themes/anime-mage-mask.png',
         colorAdjustments: {
           brightness: 1.05,
           contrast: 1.15,
@@ -307,8 +307,8 @@ export const mockThemes: Theme[] = [
         id: 'anime-schoolgirl',
         name: 'School Girl',
         description: 'Classic anime school girl with uniform and cheerful expression',
-        thumbnailUrl: '/themes/anime-schoolgirl-thumb.jpg',
-        templateUrl: '/themes/anime-schoolgirl-template.jpg',
+        thumbnailUrl: 'themes/anime-schoolgirl-thumb.jpg',
+        templateUrl: 'themes/anime-schoolgirl-template.jpg',
         gender: 'Female',
         faceRegion: {
           x: 0.42,
@@ -317,7 +317,7 @@ export const mockThemes: Theme[] = [
           height: 0.28,
           rotation: 1
         },
-        blendingMask: '/themes/anime-schoolgirl-mask.png',
+        blendingMask: 'themes/anime-schoolgirl-mask.png',
         colorAdjustments: {
           brightness: 1.15,
           contrast: 1.05,

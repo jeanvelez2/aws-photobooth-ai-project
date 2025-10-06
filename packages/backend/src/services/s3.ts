@@ -235,7 +235,8 @@ export class S3Service {
       
       await s3ClientPool.execute(safeExecutor);
       
-      const url = `https://${this.bucketName}.s3.amazonaws.com/${key}`;
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const url = `https://${this.bucketName}.s3.${region}.amazonaws.com/${key}`;
       
       logger.info('File uploaded successfully', { 
         bucket: this.bucketName, 
