@@ -42,8 +42,12 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
   const abortControllerRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
   const lastRequestTimeRef = useRef(0);
+  const optionsRef = useRef(options);
   const MAX_RETRIES = 3;
   const MIN_REQUEST_INTERVAL = 5000; // 5 seconds between requests
+  
+  // Update options ref when options change
+  optionsRef.current = options;
 
   // Start processing
   const startProcessing = useCallback(async (request: ProcessingRequest) => {
@@ -107,7 +111,7 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
         {
           onProgress: (progressValue) => {
             setProgress(progressValue);
-            options.onProgress?.(progressValue);
+            optionsRef.current.onProgress?.(progressValue);
           },
           onStatusChange: (status) => {
             setResult(prev => prev ? { ...prev, status } : null);
@@ -126,14 +130,14 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       dispatch({ type: 'SET_PROCESSING_STATUS', payload: finalResult });
 
       if (finalResult.status === 'completed') {
-        options.onComplete?.(finalResult);
+        optionsRef.current.onComplete?.(finalResult);
       } else if (finalResult.status === 'failed') {
         const processingError = errorService.parseError(finalResult.error, {
           component: 'useProcessing',
           action: 'processImage',
         });
         setError(processingError);
-        options.onError?.(processingError);
+        optionsRef.current.onError?.(processingError);
       }
 
     } catch (err) {
@@ -157,7 +161,7 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       if (retryCountRef.current >= MAX_RETRIES || !processingError.retryable || isNetworkResourceError || isValidationError) {
         setError(processingError);
         dispatch({ type: 'SET_UI_ERROR', payload: processingError.userMessage });
-        options.onError?.(processingError);
+        optionsRef.current.onError?.(processingError);
       } else {
         // Auto-retry with exponential backoff for server errors only
         const backoffDelay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 10000);
@@ -174,7 +178,7 @@ export function useProcessing(options: UseProcessingOptions = {}): UseProcessing
       dispatch({ type: 'SET_LOADING', payload: false });
       abortControllerRef.current = null;
     }
-  }, [isProcessing, dispatch, options]);
+  }, [isProcessing, dispatch]);
 
   // Retry processing with the same request
   const retryProcessing = useCallback(async () => {

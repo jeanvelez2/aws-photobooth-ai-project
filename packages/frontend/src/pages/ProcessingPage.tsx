@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext, useAppState } from '../contexts/AppContext';
 import ImageProcessor from '../components/ImageProcessor';
@@ -11,6 +11,16 @@ export default function ProcessingPage() {
   const { dispatch } = useAppContext();
   const { currentPhoto, selectedTheme, selectedVariant } = useAppState();
   const [processingRequest, setProcessingRequest] = useState<ProcessingRequest | null>(null);
+  const processingStartedRef = useRef(false);
+  
+  // Stable callbacks to prevent infinite loops
+  const onComplete = useCallback(() => {
+    navigate('/result');
+  }, [navigate]);
+  
+  const onError = useCallback((error: any) => {
+    console.error('Processing error:', error);
+  }, []);
   
   const {
     isProcessing,
@@ -21,13 +31,8 @@ export default function ProcessingPage() {
     clearError,
     reset
   } = useProcessing({
-    onComplete: (result) => {
-      // Navigate to result page when processing completes
-      navigate('/result');
-    },
-    onError: (error) => {
-      console.error('Processing error:', error);
-    }
+    onComplete,
+    onError
   });
 
   // Set current step when component mounts
@@ -80,63 +85,49 @@ export default function ProcessingPage() {
 
   // Start processing when request is ready (with deduplication)
   useEffect(() => {
-    console.log('ProcessingPage: Processing effect triggered:', {
-      hasProcessingRequest: !!processingRequest,
-      isProcessing,
-      hasResult: !!result,
-      hasError: !!error,
-      requestData: processingRequest ? {
+    if (processingRequest && !processingStartedRef.current && !isProcessing && !result && !error) {
+      console.log('ProcessingPage: Starting processing with request:', {
         photoId: processingRequest.photoId,
         themeId: processingRequest.themeId,
         variantId: processingRequest.variantId,
-        originalImageUrlType: processingRequest.originalImageUrl?.startsWith('data:') ? 'dataUrl' : 'httpUrl',
-        originalImageUrlLength: processingRequest.originalImageUrl?.length
-      } : null
-    });
-
-    if (processingRequest && !isProcessing && !result && !error) {
-      // Prevent duplicate requests by checking if we already have this request
-      const requestKey = `${processingRequest.photoId}-${processingRequest.themeId}`;
-      const lastRequestKey = sessionStorage.getItem('lastProcessingRequest');
-      
-      console.log('ProcessingPage: Checking deduplication:', {
-        requestKey,
-        lastRequestKey,
-        shouldStart: lastRequestKey !== requestKey
+        originalImageUrlType: processingRequest.originalImageUrl?.startsWith('data:') ? 'dataUrl' : 'httpUrl'
       });
       
-      if (lastRequestKey !== requestKey) {
-        console.log('ProcessingPage: Starting processing with request:', {
-          ...processingRequest,
-          originalImageUrl: processingRequest.originalImageUrl?.substring(0, 50) + '...'
-        });
-        sessionStorage.setItem('lastProcessingRequest', requestKey);
-        startProcessing(processingRequest);
-      } else {
-        console.log('ProcessingPage: Skipping duplicate request');
-      }
+      processingStartedRef.current = true;
+      startProcessing(processingRequest);
     }
   }, [processingRequest, isProcessing, result, error, startProcessing]);
+  
+  // Reset processing started flag when component unmounts or resets
+  useEffect(() => {
+    return () => {
+      processingStartedRef.current = false;
+    };
+  }, []);
 
   const handleCancel = () => {
+    processingStartedRef.current = false;
     reset();
     navigate('/themes');
   };
 
   const handleRetry = () => {
     clearError();
+    processingStartedRef.current = false;
     if (processingRequest) {
       startProcessing(processingRequest);
     }
   };
 
   const handleStartOver = () => {
+    processingStartedRef.current = false;
     reset();
     dispatch({ type: 'RESET_STATE' });
     navigate('/');
   };
 
   const handleGoBack = () => {
+    processingStartedRef.current = false;
     reset();
     navigate('/themes');
   };
