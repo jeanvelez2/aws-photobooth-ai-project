@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ThemeService } from '../services/themeService.js';
 import { param, query } from 'express-validator';
+import { seedThemes } from '../scripts/seedThemes.js';
 
 const router = Router();
 const themeService = new ThemeService();
@@ -10,18 +11,7 @@ router.get('/', async (req, res) => {
   try {
     const themes = await themeService.getAllThemes();
     
-    // Add asset URLs to each variant
-    const themesWithUrls = themes.map(theme => ({
-      ...theme,
-      variants: theme.variants.map(variant => ({
-        ...variant,
-        templateUrl: themeService.getAssetUrl(theme.id, variant.id, 'template'),
-        maskUrl: themeService.getAssetUrl(theme.id, variant.id, 'mask'),
-        thumbnailUrl: themeService.getAssetUrl(theme.id, variant.id, 'thumbnail')
-      }))
-    }));
-
-    res.json(themesWithUrls);
+    res.json(themes);
   } catch (error) {
     console.error('Error fetching themes:', error);
     res.status(500).json({ error: 'Failed to fetch themes' });
@@ -39,18 +29,7 @@ router.get('/:id',
         return res.status(404).json({ error: 'Theme not found' });
       }
 
-      // Add asset URLs to each variant
-      const themeWithUrls = {
-        ...theme,
-        variants: theme.variants.map(variant => ({
-          ...variant,
-          templateUrl: themeService.getAssetUrl(theme.id, variant.id, 'template'),
-          maskUrl: themeService.getAssetUrl(theme.id, variant.id, 'mask'),
-          thumbnailUrl: themeService.getAssetUrl(theme.id, variant.id, 'thumbnail')
-        }))
-      };
-
-      res.json(themeWithUrls);
+      res.json(theme);
     } catch (error) {
       console.error('Error fetching theme:', error);
       res.status(500).json({ error: 'Failed to fetch theme' });
@@ -65,23 +44,24 @@ router.get('/category/:category',
     try {
       const themes = await themeService.getThemesByCategory(req.params.category);
       
-      // Add asset URLs to each variant
-      const themesWithUrls = themes.map(theme => ({
-        ...theme,
-        variants: theme.variants.map(variant => ({
-          ...variant,
-          templateUrl: themeService.getAssetUrl(theme.id, variant.id, 'template'),
-          maskUrl: themeService.getAssetUrl(theme.id, variant.id, 'mask'),
-          thumbnailUrl: themeService.getAssetUrl(theme.id, variant.id, 'thumbnail')
-        }))
-      }));
-
-      res.json(themesWithUrls);
+      res.json(themes);
     } catch (error) {
       console.error('Error fetching themes by category:', error);
       res.status(500).json({ error: 'Failed to fetch themes by category' });
     }
   }
 );
+
+// POST /api/themes/seed - Seed themes with optional bucket URL
+router.post('/seed', async (req, res) => {
+  try {
+    const bucketUrl = req.headers['x-s3-bucket-url'] as string;
+    await seedThemes(bucketUrl);
+    res.json({ message: 'Themes seeded successfully', bucketUrl });
+  } catch (error) {
+    console.error('Error seeding themes:', error);
+    res.status(500).json({ error: 'Failed to seed themes' });
+  }
+});
 
 export default router;

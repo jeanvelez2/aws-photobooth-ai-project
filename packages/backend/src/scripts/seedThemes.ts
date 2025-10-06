@@ -10,9 +10,13 @@ const docClient = DynamoDBDocumentClient.from(client);
 const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev';
 // Get S3_BUCKET_URL from environment or parameter
 function getS3BucketUrl(bucketUrlParam?: string): string {
-  return bucketUrlParam || process.env.S3_BUCKET_URL || process.env.S3_BUCKET_NAME ? 
-    `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com` : 
-    'https://example.com';
+  if (bucketUrlParam) return bucketUrlParam;
+  if (process.env.S3_BUCKET_URL) return process.env.S3_BUCKET_URL;
+  if (process.env.S3_BUCKET_NAME) {
+    const region = process.env.AWS_REGION || 'us-east-1';
+    return `https://${process.env.S3_BUCKET_NAME}.s3.${region}.amazonaws.com`;
+  }
+  return 'https://example.com';
 }
 
 // Function to convert relative URLs to absolute S3 URLs

@@ -464,11 +464,12 @@ jobs:
         sleep 60
         
         echo "Setting S3_BUCKET_URL for theme seeding..."
-        S3_BUCKET_URL="https://$BUCKET_NAME.s3.amazonaws.com"
+        S3_BUCKET_URL="https://$BUCKET_NAME.s3.${{ env.AWS_REGION }}.amazonaws.com"
         
         echo "Attempting theme seeding via ALB with bucket URL..."
-        curl -X POST "$ALB_URL/api/themes/seed?bucketUrl=$(echo $S3_BUCKET_URL | sed 's/\//\%2F/g')" \
+        curl -X POST "$ALB_URL/api/themes/seed" \
           -H "Content-Type: application/json" \
+          -H "X-S3-Bucket-URL: $S3_BUCKET_URL" \
           --max-time 30 \
           --retry 3 \
           --retry-delay 10 || echo "ALB theme seeding failed"
