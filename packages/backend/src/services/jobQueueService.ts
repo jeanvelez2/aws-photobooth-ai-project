@@ -71,7 +71,7 @@ export class JobQueueService {
       TableName: JOBS_TABLE,
       FilterExpression: '#status = :status',
       ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: { ':status': 'pending' }
+      ExpressionAttributeValues: { ':status': 'queued' }
     }));
 
     return result.Items as ProcessingJob[] || [];
