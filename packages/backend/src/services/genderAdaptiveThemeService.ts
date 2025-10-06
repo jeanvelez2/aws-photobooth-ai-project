@@ -1,6 +1,6 @@
-import { mockThemes } from '../data/mockThemes.js';
 import { FaceDetectionResult } from './faceDetectionService.js';
 import { logger } from '../utils/logger.js';
+import { ThemeService } from './themeService.js';
 
 export interface GenderAdaptiveSelection {
   recommendedVariantId: string;
@@ -10,15 +10,16 @@ export interface GenderAdaptiveSelection {
 }
 
 export class GenderAdaptiveThemeService {
+  private themeService = new ThemeService();
   
   /**
    * Select the best theme variant based on detected gender
    */
-  selectVariantByGender(
+  async selectVariantByGender(
     themeId: string, 
     faceDetection: FaceDetectionResult
-  ): GenderAdaptiveSelection {
-    const theme = mockThemes.find(t => t.id === themeId);
+  ): Promise<GenderAdaptiveSelection> {
+    const theme = await this.themeService.getThemeById(themeId);
     
     if (!theme) {
       throw new Error(`Theme not found: ${themeId}`);
@@ -77,12 +78,12 @@ export class GenderAdaptiveThemeService {
   /**
    * Get all variants grouped by gender for a theme
    */
-  getVariantsByGender(themeId: string): {
+  async getVariantsByGender(themeId: string): Promise<{
     male: Array<{ id: string; name: string; description: string }>;
     female: Array<{ id: string; name: string; description: string }>;
     neutral: Array<{ id: string; name: string; description: string }>;
-  } {
-    const theme = mockThemes.find(t => t.id === themeId);
+  }> {
+    const theme = await this.themeService.getThemeById(themeId);
     
     if (!theme) {
       throw new Error(`Theme not found: ${themeId}`);
@@ -106,13 +107,13 @@ export class GenderAdaptiveThemeService {
   /**
    * Get gender distribution across all themes
    */
-  getGenderDistribution(): {
+  async getGenderDistribution(): Promise<{
     totalVariants: number;
     maleVariants: number;
     femaleVariants: number;
     neutralVariants: number;
     byTheme: Record<string, { male: number; female: number; neutral: number }>;
-  } {
+  }> {
     let totalVariants = 0;
     let maleVariants = 0;
     let femaleVariants = 0;
@@ -120,7 +121,8 @@ export class GenderAdaptiveThemeService {
     
     const byTheme: Record<string, { male: number; female: number; neutral: number }> = {};
 
-    mockThemes.forEach(theme => {
+    const themes = await this.themeService.getAllThemes();
+    themes.forEach(theme => {
       const themeStats = { male: 0, female: 0, neutral: 0 };
       
       theme.variants.forEach(variant => {

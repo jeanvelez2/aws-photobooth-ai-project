@@ -2,7 +2,8 @@ import { logger } from '../utils/logger.js';
 import { processingPipeline } from './processingPipeline.js';
 import { processingJobService } from './processingJob.js';
 import { monitoringService } from './monitoring.js';
-import { mockThemes } from '../data/mockThemes.js';
+import { ThemeService } from './themeService.js';
+
 import { ProcessingJob } from 'shared';
 import { createSubsegment, addAnnotation, addMetadata } from '../middleware/xray.js';
 
@@ -12,6 +13,7 @@ import { createSubsegment, addAnnotation, addMetadata } from '../middleware/xray
 export class ProcessingWorker {
   private isProcessing = false;
   private processingInterval: NodeJS.Timeout | null = null;
+  private themeService = new ThemeService();
 
   /**
    * Start the processing worker
@@ -71,7 +73,7 @@ export class ProcessingWorker {
       await processingJobService.updateJobStatus(job.jobId, 'processing');
 
       // Find the theme variant
-      const themeVariant = this.findThemeVariant(job.themeId, job.variantId);
+      const themeVariant = await this.findThemeVariant(job.themeId, job.variantId);
       
       if (!themeVariant) {
         await this.handleJobError(job.jobId, 'THEME_NOT_FOUND', 'The selected theme variant was not found');
@@ -201,8 +203,8 @@ export class ProcessingWorker {
    * @param variantId - Variant ID (optional)
    * @returns ThemeVariant or null if not found
    */
-  private findThemeVariant(themeId: string, variantId?: string) {
-    const theme = mockThemes.find(t => t.id === themeId);
+  private async findThemeVariant(themeId: string, variantId?: string) {
+    const theme = await this.themeService.getThemeById(themeId);
     
     if (!theme) {
       return null;

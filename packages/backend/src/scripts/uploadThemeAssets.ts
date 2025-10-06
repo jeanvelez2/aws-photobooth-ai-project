@@ -3,7 +3,7 @@
 import { S3Client, PutObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { mockThemes } from '../data/mockThemes.js';
+
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'ai-photobooth-dev';
@@ -18,7 +18,14 @@ async function uploadThemeAssets() {
 
     const assetsDir = join(process.cwd(), 'assets', 'themes');
     
-    for (const theme of mockThemes) {
+    const themes = [
+      { id: 'barbarian', name: 'Barbarian', variants: [{ id: 'barbarian-warrior' }, { id: 'barbarian-berserker' }, { id: 'barbarian-chieftain' }] },
+      { id: 'greek', name: 'Greek', variants: [{ id: 'greek-philosopher' }, { id: 'greek-goddess' }, { id: 'greek-hero' }] },
+      { id: 'mystic', name: 'Mystic', variants: [{ id: 'mystic-wizard' }, { id: 'mystic-sorceress' }, { id: 'mystic-oracle' }] },
+      { id: 'anime', name: 'Anime', variants: [{ id: 'anime-ninja' }, { id: 'anime-samurai' }, { id: 'anime-mage' }, { id: 'anime-schoolgirl' }] }
+    ];
+    
+    for (const theme of themes) {
       console.log(`📁 Processing theme: ${theme.name}`);
       
       for (const variant of theme.variants) {
