@@ -47,7 +47,7 @@ async function seedThemes(bucketUrlParam?: string) {
       const command = new PutCommand({
         TableName: THEMES_TABLE,
         Item: {
-          id: processedTheme.id,
+          themeId: processedTheme.id,
           name: processedTheme.name,
           description: processedTheme.description,
           category: processedTheme.category,

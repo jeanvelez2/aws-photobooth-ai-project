@@ -21,7 +21,13 @@ export class ThemeService {
       });
 
       const result = await docClient.send(command);
-      return result.Items as Theme[] || [];
+      return (result.Items || []).map(item => {
+        const { themeId, ...rest } = item;
+        return {
+          ...rest,
+          id: themeId
+        };
+      }) as Theme[];
     } catch (error) {
       console.error('Error fetching themes from DynamoDB:', error);
       return mockThemes;
@@ -36,11 +42,16 @@ export class ThemeService {
     try {
       const command = new GetCommand({
         TableName: THEMES_TABLE,
-        Key: { id }
+        Key: { themeId: id }
       });
 
       const result = await docClient.send(command);
-      return result.Item as Theme || null;
+      if (!result.Item) return null;
+      const { themeId, ...rest } = result.Item;
+      return {
+        ...rest,
+        id: themeId
+      } as Theme;
     } catch (error) {
       console.error('Error fetching theme from DynamoDB:', error);
       return mockThemes.find(theme => theme.id === id) || null;
