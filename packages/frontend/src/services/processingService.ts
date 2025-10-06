@@ -128,7 +128,7 @@ export class ProcessingService {
             { 
               component: 'ProcessingService', 
               action: 'startProcessing',
-              canReset: true
+
             }
           );
           onError?.(error);
@@ -136,7 +136,6 @@ export class ProcessingService {
         }
       }
 
-    try {
       // Validate executor functions before execution
       const safeMainExecutor = async () => {
         console.log('Sending processing request:', request);
@@ -191,8 +190,6 @@ export class ProcessingService {
         
         this.recordSuccess(endpoint);
         return result;
-      } finally {
-        this.activeRequests.delete(requestKey);
       };
       
       const safeFallbackExecutor = enableFallback ? async () => {

@@ -143,7 +143,7 @@ export default function ProcessingPage() {
             hasPhoto: !!currentPhoto,
             hasTheme: !!selectedTheme,
             component: 'ProcessingPage',
-            canReset: error.type === 'SERVICE_UNAVAILABLE'
+
           }}
         />
       </div>
