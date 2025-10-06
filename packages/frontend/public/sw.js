@@ -1,10 +1,10 @@
 // Service Worker for AI Photobooth
 // Provides offline functionality and caching strategies
 
-const CACHE_NAME = 'ai-photobooth-v1';
-const STATIC_CACHE = 'static-v1';
-const DYNAMIC_CACHE = 'dynamic-v1';
-const IMAGE_CACHE = 'images-v1';
+const CACHE_NAME = 'ai-photobooth-v2';
+const STATIC_CACHE = 'static-v2';
+const DYNAMIC_CACHE = 'dynamic-v2';
+const IMAGE_CACHE = 'images-v2';
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -213,6 +213,8 @@ function isValidUrl(urlString) {
     // Allow specific trusted domains
     const trustedDomains = [
       'amazonaws.com',
+      's3.amazonaws.com',
+      's3.us-east-1.amazonaws.com',
       'cloudfront.net',
       'googleapis.com',
       'gstatic.com'
