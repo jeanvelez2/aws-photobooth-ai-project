@@ -12,7 +12,7 @@ export class JobQueueService {
   async createJob(imageUrl: string, themeId: string, variantId?: string): Promise<ProcessingJob> {
     const job: ProcessingJob = {
       jobId: uuidv4(),
-      status: 'pending',
+      status: 'queued',
       originalImageUrl: imageUrl,
       themeId,
       variantId,
@@ -22,10 +22,12 @@ export class JobQueueService {
       updatedAt: new Date().toISOString()
     };
 
+    console.log(`Creating job in table: ${JOBS_TABLE}`);
     await docClient.send(new PutCommand({
       TableName: JOBS_TABLE,
       Item: job
     }));
+    console.log(`Job ${job.jobId} created in table: ${JOBS_TABLE}`);
 
     return job;
   }
