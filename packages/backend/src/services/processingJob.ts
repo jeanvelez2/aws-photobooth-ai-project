@@ -38,6 +38,7 @@ export class ProcessingJobService {
     };
 
     try {
+      console.log(`Creating job ${jobId} in table ${this.tableName}`);
       await dynamoDBDocClient.send(
         new PutCommand({
           TableName: this.tableName,
@@ -49,9 +50,11 @@ export class ProcessingJobService {
         })
       );
 
+      console.log(`Job ${jobId} created successfully in ${this.tableName}`);
       logger.info('Processing job created', { jobId, themeId: request.themeId });
       return job;
     } catch (error) {
+      console.log(`Failed to create job ${jobId}: ${error}`);
       logger.error('Failed to create processing job', { error, jobId });
       throw new Error('Failed to create processing job');
     }
@@ -229,6 +232,7 @@ export class ProcessingJobService {
    */
   async getNextQueuedJob(): Promise<ProcessingJob | null> {
     try {
+      console.log(`Querying ${this.tableName} for queued jobs using GSI`);
       const result = await dynamoDBDocClient.send(
         new QueryCommand({
           TableName: this.tableName,
@@ -245,8 +249,30 @@ export class ProcessingJobService {
         })
       );
 
+      console.log(`GSI query returned ${result.Items?.length || 0} items`);
       if (!result.Items || result.Items.length === 0) {
-        return null;
+        // Try fallback: scan table directly for queued jobs
+        console.log('GSI returned 0 items, trying direct scan fallback');
+        const scanResult = await dynamoDBDocClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            FilterExpression: '#status = :status',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': 'queued',
+            },
+            Limit: 1,
+          })
+        );
+        console.log(`Direct scan returned ${scanResult.Items?.length || 0} items`);
+        if (!scanResult.Items || scanResult.Items.length === 0) {
+          return null;
+        }
+        const scanItem = scanResult.Items[0];
+        const { ttl, ...scanJob } = scanItem as any;
+        return scanJob as ProcessingJob;
       }
 
       const item = result.Items[0];
@@ -256,6 +282,7 @@ export class ProcessingJobService {
       const { ttl, ...job } = item as any;
       return job as ProcessingJob;
     } catch (error) {
+      console.log(`GSI query failed: ${error}`);
       logger.error('Failed to get next queued job', { error });
       throw new Error('Failed to retrieve next queued job');
     }
