@@ -225,6 +225,10 @@ export class PhotoboothStack extends cdk.Stack {
       service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
     });
 
+    vpc.addInterfaceEndpoint('BedrockEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.BEDROCK_RUNTIME,
+    });
+
     return vpc;
   }
 
@@ -397,6 +401,15 @@ export class PhotoboothStack extends cdk.Stack {
                 'secretsmanager:GetSecretValue',
               ],
               resources: [this.appConfigSecret.secretArn],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'bedrock:InvokeModel',
+              ],
+              resources: [
+                `arn:aws:bedrock:${this.region}::foundation-model/stability.stable-diffusion-xl-v1`,
+              ],
             }),
           ],
         }),

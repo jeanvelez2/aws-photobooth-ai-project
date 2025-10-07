@@ -96,6 +96,9 @@ export class JobQueue {
       themeId: job.themeId,
       variantId: job.variantId,
       outputFormat: job.outputFormat as 'jpeg' | 'png',
+      action: (job as any).action,
+      mood: (job as any).mood,
+      generatePose: (job as any).generatePose,
     });
 
     await processingJobService.updateJobStatus(jobId, 'completed', {

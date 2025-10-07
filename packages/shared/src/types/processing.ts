@@ -5,6 +5,9 @@ export interface ProcessingRequest {
   outputFormat: 'jpeg' | 'png';
   userId?: string | undefined;
   originalImageUrl: string;
+  action?: string;
+  mood?: 'epic' | 'dark' | 'bright' | 'mystical';
+  generatePose?: boolean;
 }
 
 export interface ProcessingJob {
@@ -23,6 +26,9 @@ export interface ProcessingJob {
   updatedAt?: string;
   completedAt?: string;
   imageUrl?: string;
+  action?: string;
+  mood?: 'epic' | 'dark' | 'bright' | 'mystical';
+  generatePose?: boolean;
 }
 
 export interface ProcessingResult {

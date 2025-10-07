@@ -11,7 +11,7 @@ import type { ProcessingRequest } from '../types';
 export default function ProcessingPage() {
   const navigate = useNavigate();
   const { dispatch } = useAppContext();
-  const { currentPhoto, selectedTheme, selectedVariant } = useAppState();
+  const { currentPhoto, selectedTheme, selectedVariant, poseOptions } = useAppState();
   const [processingRequest, setProcessingRequest] = useState<ProcessingRequest | null>(null);
   const processingStartedRef = useRef(false);
   
@@ -89,6 +89,9 @@ export default function ProcessingPage() {
       variantId: selectedVariant?.id,
       outputFormat: 'jpeg',
       originalImageUrl,
+      action: poseOptions?.action,
+      mood: poseOptions?.mood as 'epic' | 'dark' | 'bright' | 'mystical' | undefined,
+      generatePose: poseOptions?.generatePose,
     };
 
     console.log('ProcessingPage: Created request:', {

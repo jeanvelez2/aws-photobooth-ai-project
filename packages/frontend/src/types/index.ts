@@ -49,6 +49,9 @@ export interface ProcessingRequest {
   outputFormat: 'jpeg' | 'png';
   userId?: string;
   originalImageUrl: string;
+  action?: string;
+  mood?: 'epic' | 'dark' | 'bright' | 'mystical';
+  generatePose?: boolean;
 }
 
 export interface ProcessingResult {
@@ -68,6 +71,11 @@ export interface AppState {
   selectedTheme: Theme | null;
   selectedVariant: ThemeVariant | null;
   processingStatus: ProcessingResult | null;
+  poseOptions: {
+    action: string;
+    mood: string;
+    generatePose: boolean;
+  };
 }
 
 export interface CameraState {

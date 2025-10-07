@@ -14,6 +14,7 @@ type AppAction =
   | { type: 'SET_THEME'; payload: AppState['selectedTheme'] }
   | { type: 'SET_VARIANT'; payload: AppState['selectedVariant'] }
   | { type: 'SET_PROCESSING_STATUS'; payload: AppState['processingStatus'] }
+  | { type: 'SET_POSE_OPTIONS'; payload: { action: string; mood: string; generatePose: boolean } }
   | { type: 'SET_CAMERA_ACTIVE'; payload: boolean }
   | { type: 'SET_CAMERA_PERMISSION'; payload: boolean }
   | { type: 'SET_CAMERA_ERROR'; payload: string | null }
@@ -30,6 +31,11 @@ const initialState: GlobalState = {
     selectedTheme: null,
     selectedVariant: null,
     processingStatus: null,
+    poseOptions: {
+      action: 'serious-look',
+      mood: 'epic',
+      generatePose: false
+    },
   },
   camera: {
     isActive: false,
@@ -67,6 +73,11 @@ function appReducer(state: GlobalState, action: AppAction): GlobalState {
       return {
         ...state,
         app: { ...state.app, processingStatus: action.payload },
+      };
+    case 'SET_POSE_OPTIONS':
+      return {
+        ...state,
+        app: { ...state.app, poseOptions: action.payload },
       };
     case 'SET_CAMERA_ACTIVE':
       return {

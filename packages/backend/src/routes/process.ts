@@ -6,8 +6,9 @@ import { validate, commonValidations } from '../middleware/validation.js';
 import { jobQueue } from '../services/jobQueue.js';
 import { JobQueueService } from '../services/jobQueueService.js';
 import { imageProcessingService } from '../services/imageProcessingService.js';
+import { contentModerationService } from '../services/contentModerationService.js';
 import { logger } from '../utils/logger.js';
-import { ProcessingRequest } from 'shared';
+import type { ProcessingRequest } from 'shared';
 
 const router = Router();
 
@@ -19,6 +20,9 @@ const processRequestSchema = z.object({
   outputFormat: z.enum(['jpeg', 'png']).default('jpeg'),
   userId: z.string().optional(),
   originalImageUrl: z.string().min(1, 'Valid image URL is required'),
+  action: z.string().optional(),
+  mood: z.enum(['epic', 'dark', 'bright', 'mystical']).optional(),
+  generatePose: z.boolean().optional(),
 });
 
 const jobIdSchema = z.object({
@@ -40,6 +44,22 @@ router.post('/', ipReputationCheck, burstProtection, adaptiveRateLimit, async (r
       });
     }
 
+    // Content moderation check for pose generation
+    if (validationResult.data.generatePose && validationResult.data.action && validationResult.data.mood) {
+      const moderation = contentModerationService.validateThemeAction(
+        validationResult.data.themeId,
+        validationResult.data.action,
+        validationResult.data.mood
+      );
+      
+      if (!moderation.isAppropriate) {
+        return res.status(400).json({
+          error: 'Content not allowed',
+          message: moderation.reason || 'The requested content combination is not permitted',
+        });
+      }
+    }
+
     const request: ProcessingRequest = {
       photoId: validationResult.data.photoId,
       themeId: validationResult.data.themeId,
@@ -47,6 +67,9 @@ router.post('/', ipReputationCheck, burstProtection, adaptiveRateLimit, async (r
       outputFormat: validationResult.data.outputFormat,
       userId: validationResult.data.userId,
       originalImageUrl: validationResult.data.originalImageUrl,
+      action: validationResult.data.action,
+      mood: validationResult.data.mood,
+      generatePose: validationResult.data.generatePose,
     };
     
     logger.info('Processing job requested', { 

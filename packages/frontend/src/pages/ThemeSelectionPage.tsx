@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { Theme, ThemeVariant } from '../types';
 import ThemeSelector from '../components/ThemeSelector';
+import PoseSelector from '../components/PoseSelector';
 import { useThemes } from '../hooks/useThemes';
 
 export default function ThemeSelectionPage() {
@@ -10,6 +11,9 @@ export default function ThemeSelectionPage() {
   const { state, dispatch } = useAppContext();
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(state.app.selectedTheme);
   const [selectedVariant, setSelectedVariant] = useState<ThemeVariant | null>(null);
+  const [selectedAction, setSelectedAction] = useState<string>('serious-look');
+  const [selectedMood, setSelectedMood] = useState<string>('epic');
+  const [generatePose, setGeneratePose] = useState<boolean>(false);
   
   // Fetch themes from API
   const { data: themesData = [], isLoading: themesLoading, error: themesError } = useThemes();
@@ -44,8 +48,15 @@ export default function ThemeSelectionPage() {
 
   const handleContinue = () => {
     if (selectedTheme) {
-      // If a variant is selected, we could store it in context for later use
-      // For now, we'll proceed with the theme selection
+      // Store pose selection data in context
+      dispatch({
+        type: 'SET_POSE_OPTIONS',
+        payload: {
+          action: selectedAction,
+          mood: selectedMood,
+          generatePose
+        }
+      });
       navigate('/process');
     }
   };
@@ -116,6 +127,21 @@ export default function ThemeSelectionPage() {
         showPreview={showPreview}
         capturedPhotoUrl={capturedPhotoUrl}
       />
+
+      {/* Pose Selector Component */}
+      {selectedTheme && (
+        <div className="mt-8">
+          <PoseSelector
+            themeId={selectedTheme.id}
+            selectedAction={selectedAction}
+            selectedMood={selectedMood}
+            generatePose={generatePose}
+            onActionSelect={setSelectedAction}
+            onMoodSelect={setSelectedMood}
+            onGeneratePoseToggle={setGeneratePose}
+          />
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex justify-between items-center mt-12 pt-8 border-t">

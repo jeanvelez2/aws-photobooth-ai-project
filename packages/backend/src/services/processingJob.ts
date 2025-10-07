@@ -35,6 +35,9 @@ export class ProcessingJobService {
       createdAt: now.toISOString(),
       retryCount: 0,
       outputFormat: request.outputFormat,
+      action: request.action,
+      mood: request.mood,
+      generatePose: request.generatePose,
     };
 
     try {
