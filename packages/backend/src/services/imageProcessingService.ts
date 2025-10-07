@@ -5,6 +5,7 @@ import { performanceOptimizer } from './performanceOptimizer.js';
 import { faceDetectionService, FaceDetectionResult } from './faceDetectionService.js';
 import { genderAdaptiveThemeService } from './genderAdaptiveThemeService.js';
 import { v4 as uuidv4 } from 'uuid';
+import { config } from '../config/index.js';
 
 export interface ProcessingOptions {
   themeId: string;
@@ -31,8 +32,9 @@ export class ImageProcessingService {
   private bucketName: string;
 
   constructor() {
-    this.s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.bucketName = process.env.S3_BUCKET_NAME || '';
+    this.s3Client = new S3Client({ region: config.aws.region });
+    this.bucketName = config.aws.s3.bucketName;
+    console.log(`[IMAGE_PROCESSING] Initialized with bucket: ${this.bucketName}, region: ${config.aws.region}`);
   }
 
   async processImage(
@@ -40,12 +42,15 @@ export class ImageProcessingService {
     options: ProcessingOptions
   ): Promise<ProcessingResult> {
     const startTime = Date.now();
+    console.log(`[IMAGE_PROCESSING] Starting image processing for ${inputImageKey} with options:`, options);
     
     try {
       logger.info('Starting image processing', { inputImageKey, options });
 
+      console.log(`[IMAGE_PROCESSING] Step 1: Detecting faces in ${inputImageKey}`);
       // Step 1: Detect faces in the input image
       const faceDetection = await faceDetectionService.detectFaces(inputImageKey);
+      console.log(`[IMAGE_PROCESSING] Face detection completed: ${faceDetection.faces.length} faces found`);
       
       if (faceDetection.faces.length === 0) {
         throw new Error('NO_FACE_DETECTED');
@@ -129,6 +134,7 @@ export class ImageProcessingService {
       };
     } catch (error) {
       const processingTimeMs = Date.now() - startTime;
+      console.log(`[IMAGE_PROCESSING] Image processing failed for ${inputImageKey}:`, error);
       logger.error('Image processing failed', {
         inputImageKey,
         options,

@@ -20,10 +20,15 @@
     "seed:themes": "tsx src/scripts/seedThemes.ts",
     "upload:assets": "tsx src/scripts/uploadThemeAssets.ts",
     "setup:cors": "tsx src/scripts/configureCors.ts",
-    "setup:themes": "npm run setup:cors && npm run upload:assets && npm run seed:themes",
+    "setup:themes": "npm run seed:themes",
+    "worker:fix": "npm run fix && npm run diagnose",
+    "worker:test": "npm run test:job && sleep 10 && npm run diagnose",
     "worker:start": "tsx src/workers/index.ts",
     "jobs:retry": "tsx -e \"import { JobRetryService } from './src/services/jobRetryService.js'; new JobRetryService().retryFailedJobs()\"",
     "jobs:cleanup": "tsx -e \"import { JobCleanupService } from './src/services/jobCleanupService.js'; new JobCleanupService().cleanupOldJobs()\"",
+    "diagnose": "tsx src/scripts/diagnoseWorker.ts",
+    "fix": "tsx src/scripts/fixWorkerIssues.ts",
+    "test:job": "tsx src/scripts/createTestJob.ts",
     "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {

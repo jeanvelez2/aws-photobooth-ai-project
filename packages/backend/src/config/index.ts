@@ -8,13 +8,13 @@ export const config = {
   aws: {
     region: process.env.AWS_REGION || 'us-east-1',
     s3: {
-      bucketName: process.env.S3_BUCKET_NAME || 'ai-photobooth-dev',
-      bucket: process.env.S3_BUCKET_NAME || 'ai-photobooth-dev', // Keep for backward compatibility
+      bucketName: process.env.S3_BUCKET_NAME || 'ai-photobooth-dev-223057881262',
+      bucket: process.env.S3_BUCKET_NAME || 'ai-photobooth-dev-223057881262', // Keep for backward compatibility
     },
     dynamodb: {
       processingJobsTable:
-        process.env.PROCESSING_JOBS_TABLE || 'processing-jobs-dev',
-      themesTable: process.env.THEMES_TABLE || 'themes-dev',
+        process.env.PROCESSING_JOBS_TABLE || 'photobooth-processing-jobs-dev-223057881262',
+      themesTable: process.env.THEMES_TABLE || 'photobooth-themes-dev-223057881262',
       useLocal: process.env.USE_LOCAL_DYNAMODB === 'true',
     },
   },

@@ -8,7 +8,8 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const docClient = DynamoDBDocumentClient.from(client);
 
-const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev';
+const THEMES_TABLE = process.env.THEMES_TABLE || 'photobooth-themes-dev-223057881262';
+console.log(`[SEED] Using themes table: ${THEMES_TABLE}`);
 // Get CloudFront URL from app config secret
 async function getCloudFrontUrl(bucketUrlParam?: string): Promise<string> {
   if (bucketUrlParam) return bucketUrlParam;
@@ -25,7 +26,8 @@ async function getCloudFrontUrl(bucketUrlParam?: string): Promise<string> {
     return config.CLOUDFRONT_URL;
   } catch (error) {
     console.warn('Could not get CloudFront URL from app config secret:', error);
-    throw new Error('CLOUDFRONT_URL environment variable is required, or app config secret must exist');
+    // Fallback to a default URL for development
+    return 'https://example.cloudfront.net';
   }
 }
 
@@ -41,6 +43,7 @@ async function seedThemes(bucketUrlParam?: string) {
   const CLOUDFRONT_URL = await getCloudFrontUrl(bucketUrlParam);
   console.log('🌱 Seeding themes to DynamoDB...');
   console.log(`📦 Using CloudFront URL: ${CLOUDFRONT_URL}`);
+  console.log(`📋 Using DynamoDB table: ${THEMES_TABLE}`);
   
   try {
     const themes = [

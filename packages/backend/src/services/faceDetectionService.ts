@@ -1,6 +1,7 @@
 import { RekognitionClient, DetectFacesCommand, DetectFacesCommandInput } from '@aws-sdk/client-rekognition';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { logger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 export interface FaceDetectionResult {
   faces: Array<{
@@ -35,12 +36,14 @@ export class FaceDetectionService {
   private bucketName: string;
 
   constructor() {
-    this.rekognitionClient = new RekognitionClient({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-    this.bucketName = process.env.S3_BUCKET_NAME || '';
+    this.rekognitionClient = new RekognitionClient({ region: config.aws.region });
+    this.s3Client = new S3Client({ region: config.aws.region });
+    this.bucketName = config.aws.s3.bucketName;
+    console.log(`[FACE_DETECTION] Initialized with bucket: ${this.bucketName}, region: ${config.aws.region}`);
   }
 
   async detectFaces(imageKey: string): Promise<FaceDetectionResult> {
+    console.log(`[FACE_DETECTION] Starting face detection for image: ${imageKey} in bucket: ${this.bucketName}`);
     try {
       const input: DetectFacesCommandInput = {
         Image: {
@@ -52,8 +55,10 @@ export class FaceDetectionService {
         Attributes: ['ALL'],
       };
 
+      console.log(`[FACE_DETECTION] Sending DetectFaces command to Rekognition`);
       const command = new DetectFacesCommand(input);
       const response = await this.rekognitionClient.send(command);
+      console.log(`[FACE_DETECTION] Rekognition response received, faces found: ${response.FaceDetails?.length || 0}`);
 
       if (!response.FaceDetails || response.FaceDetails.length === 0) {
         throw new Error('NO_FACE_DETECTED');
@@ -98,6 +103,7 @@ export class FaceDetectionService {
         imageHeight: imageMetadata.height,
       };
     } catch (error) {
+      console.log(`[FACE_DETECTION] Face detection failed for ${imageKey}:`, error);
       logger.error('Face detection failed', { imageKey, error });
       throw error;
     }
