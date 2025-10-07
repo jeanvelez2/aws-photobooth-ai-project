@@ -80,8 +80,14 @@ export class ImageProcessingService {
 
       console.log(`[IMAGE_PROCESSING] Step 1: Detecting faces in ${inputImageKey}`);
       // Step 1: Detect faces in the input image
-      const faceDetection = await faceDetectionService.detectFaces(inputImageKey);
-      console.log(`[IMAGE_PROCESSING] Face detection completed: ${faceDetection.faces.length} faces found`);
+      let faceDetection;
+      try {
+        faceDetection = await faceDetectionService.detectFaces(inputImageKey);
+        console.log(`[IMAGE_PROCESSING] Face detection completed: ${faceDetection.faces.length} faces found`);
+      } catch (faceError) {
+        console.log(`[IMAGE_PROCESSING] Face detection failed:`, faceError);
+        throw faceError;
+      }
       
       if (faceDetection.faces.length === 0) {
         throw new Error('NO_FACE_DETECTED');
@@ -122,27 +128,37 @@ export class ImageProcessingService {
       }
       
       // Step 4: Load the input image
+      console.log(`[IMAGE_PROCESSING] Step 4: Loading input image from S3`);
       const inputImageBuffer = await this.loadImageFromS3(inputImageKey);
+      console.log(`[IMAGE_PROCESSING] Input image loaded, size: ${inputImageBuffer.length} bytes`);
       
       // Step 5: Load the theme template
+      console.log(`[IMAGE_PROCESSING] Step 5: Loading theme template for ${options.themeId}/${selectedVariantId}`);
       const themeTemplate = await this.loadThemeTemplate(options.themeId, selectedVariantId);
+      console.log(`[IMAGE_PROCESSING] Theme template loaded, size: ${themeTemplate.length} bytes`);
       
-      // Step 5: Process the image (basic implementation)
+      // Step 6: Process the image (blend face with theme)
+      console.log(`[IMAGE_PROCESSING] Step 6: Blending face with theme`);
       const processedImageBuffer = await this.blendImages(
         inputImageBuffer,
         themeTemplate,
         faceDetection,
         options
       );
+      console.log(`[IMAGE_PROCESSING] Image blending completed, result size: ${processedImageBuffer.length} bytes`);
 
-      // Step 6: Optimize and save the result
+      // Step 7: Optimize and save the result
+      console.log(`[IMAGE_PROCESSING] Step 7: Optimizing processed image`);
       const optimizedBuffer = await performanceOptimizer.optimizeImage(processedImageBuffer, {
         quality: options.quality || 85,
         format: options.outputFormat === 'png' ? 'png' : 'jpeg'
       });
+      console.log(`[IMAGE_PROCESSING] Image optimized, final size: ${optimizedBuffer.length} bytes`);
       
       const resultImageKey = `processed/${uuidv4()}.${options.outputFormat}`;
+      console.log(`[IMAGE_PROCESSING] Step 8: Saving result to S3 as ${resultImageKey}`);
       await this.saveImageToS3(resultImageKey, optimizedBuffer, options.outputFormat);
+      console.log(`[IMAGE_PROCESSING] Result saved to S3 successfully`);
       
       // Optimize memory usage
       performanceOptimizer.optimizeMemory();
@@ -196,9 +212,14 @@ export class ImageProcessingService {
     const templateKeys = [];
     
     if (variantId) {
+      // Try template first, then thumb, then mask as fallbacks
       templateKeys.push(`themes/${themeId}/${variantId}-template.jpg`);
+      templateKeys.push(`themes/${themeId}/${variantId}-thumb.jpg`);
+      templateKeys.push(`themes/${themeId}/${variantId}-mask.png`);
     }
+    // Base theme fallbacks
     templateKeys.push(`themes/${themeId}/${themeId}-template.jpg`);
+    templateKeys.push(`themes/${themeId}/${themeId}-thumb.svg`); // Base themes use SVG thumbs
     
     console.log(`[IMAGE_PROCESSING] Looking for theme templates:`, templateKeys);
     
