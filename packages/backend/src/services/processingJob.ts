@@ -143,8 +143,11 @@ export class ProcessingJobService {
 
       logger.info('Processing job status updated', { jobId, status, updates });
     } catch (error) {
-      logger.error('Failed to update processing job status', { error, jobId, status });
-      throw new Error('Failed to update processing job status');
+      console.log(`[PROCESSING_JOB] DynamoDB UpdateCommand failed for job ${jobId}:`, error);
+      console.log(`[PROCESSING_JOB] Table: ${this.tableName}`);
+      console.log(`[PROCESSING_JOB] Update expression: SET ${updateExpression.join(', ')}`);
+      logger.error('Failed to update processing job status', { error, jobId, status, tableName: this.tableName });
+      throw new Error(`Failed to update processing job status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
