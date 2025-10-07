@@ -77,7 +77,14 @@ export class ImageProcessingService {
   ): Promise<ProcessingResult> {
     const inputImageKey = this.extractS3KeyFromUrl(inputImageKeyOrUrl);
     const startTime = Date.now();
-    console.log(`[IMAGE_PROCESSING] Starting image processing for ${inputImageKey} with options:`, options);
+    console.log(`[IMAGE_PROCESSING] Starting image processing for ${inputImageKey} with options:`, {
+      themeId: options.themeId,
+      variantId: options.variantId,
+      outputFormat: options.outputFormat,
+      generatePose: options.generatePose,
+      action: options.action,
+      mood: options.mood
+    });
     
     try {
       logger.info('Starting image processing', { inputImageKey, options });
@@ -138,8 +145,22 @@ export class ImageProcessingService {
       
       // Step 5: Generate dynamic pose if requested
       let themeTemplate;
+      console.log(`[IMAGE_PROCESSING] Pose generation check:`, {
+        generatePose: options.generatePose,
+        action: options.action,
+        mood: options.mood,
+        willGeneratePose: !!(options.generatePose && options.action)
+      });
+      
       if (options.generatePose && options.action) {
         console.log(`[IMAGE_PROCESSING] Step 5a: Generating dynamic pose with Bedrock`);
+        console.log(`[IMAGE_PROCESSING] Bedrock parameters:`, {
+          themeId: options.themeId,
+          variantId: selectedVariantId,
+          action: options.action,
+          mood: options.mood || 'epic'
+        });
+        
         const userFaceBuffer = await sharp(inputImageBuffer)
           .extract({
             left: Math.max(0, Math.round(primaryFace.boundingBox.left * (await sharp(inputImageBuffer).metadata()).width!)),
@@ -151,6 +172,7 @@ export class ImageProcessingService {
         
         const baseTemplate = await this.loadThemeTemplate(options.themeId, selectedVariantId);
         try {
+          console.log(`[IMAGE_PROCESSING] Calling Bedrock service...`);
           const poseResult = await bedrockService.generatePoseVariation({
             themeId: options.themeId,
             variantId: selectedVariantId,
@@ -160,13 +182,13 @@ export class ImageProcessingService {
             templateBuffer: baseTemplate
           });
           themeTemplate = poseResult.imageBuffer;
-          console.log(`[IMAGE_PROCESSING] Dynamic pose generated with action: ${options.action}`);
+          console.log(`[IMAGE_PROCESSING] ✅ Dynamic pose generated successfully with action: ${options.action}`);
         } catch (bedrockError) {
-          console.log(`[IMAGE_PROCESSING] Bedrock generation failed, falling back to static template:`, bedrockError);
+          console.log(`[IMAGE_PROCESSING] ❌ Bedrock generation failed, falling back to static template:`, bedrockError);
           themeTemplate = baseTemplate;
         }
       } else {
-        console.log(`[IMAGE_PROCESSING] Step 5: Loading theme template for ${options.themeId}/${selectedVariantId}`);
+        console.log(`[IMAGE_PROCESSING] Step 5: Using static template (no pose generation requested)`);
         themeTemplate = await this.loadThemeTemplate(options.themeId, selectedVariantId);
       }
       console.log(`[IMAGE_PROCESSING] Theme template ready, size: ${themeTemplate.length} bytes`);
@@ -298,145 +320,110 @@ export class ImageProcessingService {
     options: ProcessingOptions
   ): Promise<Buffer> {
     try {
-      const face = faceDetection.faces[0];
+      const userFace = faceDetection.faces[0];
       
       // Get input image metadata
       const inputMetadata = await sharp(inputImage).metadata();
       const inputWidth = inputMetadata.width || 1024;
       const inputHeight = inputMetadata.height || 1024;
       
-      // Calculate face region with proper bounds checking
-      const faceX = Math.max(0, Math.round(face.boundingBox.left * inputWidth));
-      const faceY = Math.max(0, Math.round(face.boundingBox.top * inputHeight));
-      const faceWidth = Math.min(inputWidth - faceX, Math.round(face.boundingBox.width * inputWidth));
-      const faceHeight = Math.min(inputHeight - faceY, Math.round(face.boundingBox.height * inputHeight));
+      // Extract user's face with padding
+      const faceX = Math.max(0, Math.round(userFace.boundingBox.left * inputWidth));
+      const faceY = Math.max(0, Math.round(userFace.boundingBox.top * inputHeight));
+      const faceWidth = Math.min(inputWidth - faceX, Math.round(userFace.boundingBox.width * inputWidth));
+      const faceHeight = Math.min(inputHeight - faceY, Math.round(userFace.boundingBox.height * inputHeight));
       
-      console.log(`[IMAGE_PROCESSING] Face region: ${faceX},${faceY} ${faceWidth}x${faceHeight} from ${inputWidth}x${inputHeight}`);
-      
-      // Validate face region
-      if (faceWidth <= 0 || faceHeight <= 0) {
-        throw new Error('Invalid face region detected');
-      }
-
-      // Extract face with context for better blending
-      const padding = Math.round(Math.max(faceWidth, faceHeight) * 0.3);
+      const padding = Math.round(Math.max(faceWidth, faceHeight) * 0.4);
       const expandedX = Math.max(0, faceX - padding);
       const expandedY = Math.max(0, faceY - padding);
       const expandedWidth = Math.min(inputWidth - expandedX, faceWidth + (2 * padding));
       const expandedHeight = Math.min(inputHeight - expandedY, faceHeight + (2 * padding));
       
-      // Extract the user's face with surrounding context
-      const userFaceWithContext = await sharp(inputImage)
-        .extract({ 
-          left: expandedX, 
-          top: expandedY, 
-          width: expandedWidth, 
-          height: expandedHeight 
-        })
+      const userFaceBuffer = await sharp(inputImage)
+        .extract({ left: expandedX, top: expandedY, width: expandedWidth, height: expandedHeight })
         .toBuffer();
 
-      console.log(`[IMAGE_PROCESSING] Extracted user face: ${expandedWidth}x${expandedHeight}`);
-
-      // Prepare the theme template
-      const baseTheme = await sharp(themeTemplate)
+      // Prepare template
+      const templateBuffer = await sharp(themeTemplate)
         .resize(1024, 1024, { fit: 'cover' })
         .toBuffer();
-      
-      // Analyze template colors for color matching
-      const templateStats = await sharp(baseTheme).stats();
-      const templateAvgColor = {
-        r: Math.round(templateStats.channels[0].mean),
-        g: Math.round(templateStats.channels[1].mean),
-        b: Math.round(templateStats.channels[2].mean)
+
+      // Try to detect face in template for precise replacement
+      let templateFaceRegion = null;
+      try {
+        // Save template temporarily for face detection
+        const tempKey = `temp/template-${Date.now()}.jpg`;
+        await this.saveImageToS3(tempKey, templateBuffer, 'jpeg');
+        const templateFaceDetection = await faceDetectionService.detectFaces(tempKey);
+        
+        if (templateFaceDetection.faces.length > 0) {
+          const templateFace = templateFaceDetection.faces[0];
+          templateFaceRegion = {
+            x: Math.round(templateFace.boundingBox.left * 1024),
+            y: Math.round(templateFace.boundingBox.top * 1024),
+            width: Math.round(templateFace.boundingBox.width * 1024),
+            height: Math.round(templateFace.boundingBox.height * 1024)
+          };
+          console.log(`[IMAGE_PROCESSING] Template face detected at:`, templateFaceRegion);
+        }
+      } catch (error) {
+        console.log(`[IMAGE_PROCESSING] Template face detection failed, using default position`);
+      }
+
+      // Determine target region (template face or default)
+      const targetRegion = templateFaceRegion || {
+        x: Math.round((1024 - 280) / 2),
+        y: Math.round((1024 - 280) / 2.2),
+        width: 280,
+        height: 280
       };
-      
-      console.log(`[IMAGE_PROCESSING] Template average color: RGB(${templateAvgColor.r}, ${templateAvgColor.g}, ${templateAvgColor.b})`);
 
-      // Determine target position and size
-      const targetWidth = 320;
-      const targetHeight = 320;
-      const targetX = Math.round((1024 - targetWidth) / 2);
-      const targetY = Math.round((1024 - targetHeight) / 2.3);
-      
-      // Process user's face with realistic adaptations
-      const adaptedUserFace = await sharp(userFaceWithContext)
-        .resize(targetWidth, targetHeight, { fit: 'cover', position: 'center' })
-        // Color adaptation to match template lighting
-        .modulate({
-          brightness: templateAvgColor.r > 150 ? 1.1 : 0.9, // Adapt to template brightness
-          saturation: templateAvgColor.g > 120 ? 1.2 : 0.8,  // Enhance or reduce saturation
-          hue: templateAvgColor.b > 100 ? 10 : -5            // Slight hue shift for warmth/coolness
-        })
-        // Enhance contrast for better integration
-        .linear(1.1, -(128 * 1.1) + 128)
+      // Resize and adapt user face to match template region
+      const adaptedFace = await sharp(userFaceBuffer)
+        .resize(targetRegion.width, targetRegion.height, { fit: 'cover', position: 'center' })
+        .modulate({ brightness: 1.05, saturation: 1.1, hue: 0 })
         .toBuffer();
 
-      // Create a soft circular mask for seamless blending
-      const maskSvg = `
-        <svg width="${targetWidth}" height="${targetHeight}">
-          <defs>
-            <radialGradient id="faceMask" cx="50%" cy="50%" r="48%">
-              <stop offset="0%" stop-color="white" stop-opacity="1"/>
-              <stop offset="85%" stop-color="white" stop-opacity="0.9"/>
-              <stop offset="95%" stop-color="white" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="white" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <ellipse cx="50%" cy="50%" rx="48%" ry="48%" fill="url(#faceMask)"/>
-        </svg>`;
+      // Create seamless mask
+      const maskSvg = `<svg width="${targetRegion.width}" height="${targetRegion.height}">
+        <defs>
+          <radialGradient id="mask" cx="50%" cy="50%" r="45%">
+            <stop offset="0%" stop-color="white" stop-opacity="1"/>
+            <stop offset="80%" stop-color="white" stop-opacity="0.95"/>
+            <stop offset="95%" stop-color="white" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="50%" cy="50%" rx="45%" ry="45%" fill="url(#mask)"/>
+      </svg>`;
       
-      const faceMask = await sharp(Buffer.from(maskSvg))
-        .resize(targetWidth, targetHeight)
+      const mask = await sharp(Buffer.from(maskSvg))
+        .resize(targetRegion.width, targetRegion.height)
         .png()
         .toBuffer();
 
-      // Apply mask to user face for soft edges
-      const maskedUserFace = await sharp(adaptedUserFace)
+      // Apply mask to face
+      const maskedFace = await sharp(adaptedFace)
+        .composite([{ input: mask, blend: 'dest-in' }])
+        .png()
+        .toBuffer();
+
+      console.log(`[IMAGE_PROCESSING] Face swapping at ${targetRegion.x},${targetRegion.y} size ${targetRegion.width}x${targetRegion.height}`);
+
+      // Composite face onto template
+      const result = await sharp(templateBuffer)
         .composite([{
-          input: faceMask,
-          blend: 'dest-in'
+          input: maskedFace,
+          left: targetRegion.x,
+          top: targetRegion.y,
+          blend: 'over'
         }])
-        .png()
-        .toBuffer();
-      
-      console.log(`[IMAGE_PROCESSING] Realistic face swap at ${targetX},${targetY} with color adaptation`);
-
-      // Create realistic composite with multiple blending layers
-      const result = await sharp(baseTheme)
-        .composite([
-          // Base face layer
-          {
-            input: maskedUserFace,
-            left: targetX,
-            top: targetY,
-            blend: 'over'
-          },
-          // Color matching layer
-          {
-            input: await sharp(maskedUserFace)
-              .modulate({ brightness: 0.8, saturation: 0.7 })
-              .toBuffer(),
-            left: targetX,
-            top: targetY,
-            blend: 'multiply'
-          },
-          // Highlight layer for realism
-          {
-            input: await sharp(maskedUserFace)
-              .modulate({ brightness: 1.3, saturation: 1.1 })
-              .toBuffer(),
-            left: targetX,
-            top: targetY,
-            blend: 'screen'
-          }
-        ])
-        .sharpen({ sigma: 1, m1: 0.7, m2: 3 })
-        .jpeg({ quality: options.quality || 92, progressive: true })
+        .jpeg({ quality: options.quality || 90 })
         .toBuffer();
 
       return result;
     } catch (error) {
-      logger.error('Realistic face swapping failed', { error });
+      logger.error('Face swapping failed', { error });
       throw new Error('IMAGE_PROCESSING_FAILED');
     }
   }
