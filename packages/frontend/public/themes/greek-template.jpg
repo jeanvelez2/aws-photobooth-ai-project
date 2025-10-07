@@ -1,5 +1,0 @@
-<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" fill="#FFD700"/>
-  <text x="100" y="100" text-anchor="middle" fill="white" font-size="16">greek</text>
-  <text x="100" y="120" text-anchor="middle" fill="white" font-size="12">template</text>
-</svg>

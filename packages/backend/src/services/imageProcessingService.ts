@@ -192,24 +192,48 @@ export class ImageProcessingService {
   }
 
   private async loadThemeTemplate(themeId: string, variantId?: string): Promise<Buffer> {
-    const templateKey = variantId 
-      ? `themes/${themeId}-${variantId}-template.jpg`
-      : `themes/${themeId}-template.jpg`;
-
-    try {
-      return await this.loadImageFromS3(templateKey);
-    } catch (error) {
-      logger.warn('Theme template not found, using placeholder', { themeId, variantId });
-      // Return a simple colored background as fallback
-      return await sharp({
-        create: {
-          width: 1024,
-          height: 1024,
-          channels: 3,
-          background: { r: 100, g: 150, b: 200 }
-        }
-      }).jpeg().toBuffer();
+    // Try variant-specific template first, then fallback to base theme
+    const templateKeys = [];
+    
+    if (variantId) {
+      templateKeys.push(`themes/${themeId}/${variantId}-template.jpg`);
     }
+    templateKeys.push(`themes/${themeId}/${themeId}-template.jpg`);
+    
+    console.log(`[IMAGE_PROCESSING] Looking for theme templates:`, templateKeys);
+    
+    for (const templateKey of templateKeys) {
+      try {
+        console.log(`[IMAGE_PROCESSING] Trying to load: ${templateKey}`);
+        const template = await this.loadImageFromS3(templateKey);
+        console.log(`[IMAGE_PROCESSING] Successfully loaded: ${templateKey}`);
+        return template;
+      } catch (error) {
+        console.log(`[IMAGE_PROCESSING] Failed to load ${templateKey}:`, error.message);
+        continue;
+      }
+    }
+    
+    logger.warn('No theme template found, using placeholder', { themeId, variantId, triedKeys: templateKeys });
+    
+    // Create a themed placeholder based on theme
+    const themeColors = {
+      anime: { r: 255, g: 182, b: 193 }, // Pink
+      barbarian: { r: 139, g: 69, b: 19 }, // Brown
+      greek: { r: 255, g: 215, b: 0 }, // Gold
+      mystic: { r: 138, g: 43, b: 226 } // Purple
+    };
+    
+    const color = themeColors[themeId as keyof typeof themeColors] || { r: 100, g: 150, b: 200 };
+    
+    return await sharp({
+      create: {
+        width: 1024,
+        height: 1024,
+        channels: 3,
+        background: color
+      }
+    }).jpeg().toBuffer();
   }
 
   private async blendImages(
@@ -219,28 +243,61 @@ export class ImageProcessingService {
     options: ProcessingOptions
   ): Promise<Buffer> {
     try {
-      // Basic implementation: resize input image and composite with theme
       const face = faceDetection.faces[0];
       
-      // Calculate face region
-      const faceX = Math.round(face.boundingBox.left * faceDetection.imageWidth);
-      const faceY = Math.round(face.boundingBox.top * faceDetection.imageHeight);
-      const faceWidth = Math.round(face.boundingBox.width * faceDetection.imageWidth);
-      const faceHeight = Math.round(face.boundingBox.height * faceDetection.imageHeight);
+      // Get input image metadata
+      const inputMetadata = await sharp(inputImage).metadata();
+      const inputWidth = inputMetadata.width || 1024;
+      const inputHeight = inputMetadata.height || 1024;
+      
+      // Calculate face region with proper bounds checking
+      const faceX = Math.max(0, Math.round(face.boundingBox.left * inputWidth));
+      const faceY = Math.max(0, Math.round(face.boundingBox.top * inputHeight));
+      const faceWidth = Math.min(inputWidth - faceX, Math.round(face.boundingBox.width * inputWidth));
+      const faceHeight = Math.min(inputHeight - faceY, Math.round(face.boundingBox.height * inputHeight));
+      
+      console.log(`[IMAGE_PROCESSING] Face region: ${faceX},${faceY} ${faceWidth}x${faceHeight} from ${inputWidth}x${inputHeight}`);
+      
+      // Validate face region
+      if (faceWidth <= 0 || faceHeight <= 0) {
+        throw new Error('Invalid face region detected');
+      }
 
-      // Extract face from input image
+      // Extract and prepare face with padding for better blending
+      const padding = Math.round(Math.max(faceWidth, faceHeight) * 0.3);
+      const expandedX = Math.max(0, faceX - padding);
+      const expandedY = Math.max(0, faceY - padding);
+      const expandedWidth = Math.min(inputWidth - expandedX, faceWidth + (2 * padding));
+      const expandedHeight = Math.min(inputHeight - expandedY, faceHeight + (2 * padding));
+      
       const faceImage = await sharp(inputImage)
-        .extract({ left: faceX, top: faceY, width: faceWidth, height: faceHeight })
-        .resize(200, 200) // Standard face size
+        .extract({ 
+          left: expandedX, 
+          top: expandedY, 
+          width: expandedWidth, 
+          height: expandedHeight 
+        })
+        .resize(300, 300, { fit: 'cover', position: 'center' })
         .toBuffer();
+
+      // Get theme template metadata
+      const themeMetadata = await sharp(themeTemplate).metadata();
+      const themeWidth = themeMetadata.width || 1024;
+      const themeHeight = themeMetadata.height || 1024;
+      
+      // Position face in center of theme (can be customized per theme later)
+      const centerX = Math.round((themeWidth - 300) / 2);
+      const centerY = Math.round((themeHeight - 300) / 2.5); // Slightly higher than center
+      
+      console.log(`[IMAGE_PROCESSING] Compositing face at ${centerX},${centerY} on ${themeWidth}x${themeHeight} theme`);
 
       // Composite face onto theme template
       const result = await sharp(themeTemplate)
-        .resize(1024, 1024)
+        .resize(1024, 1024, { fit: 'cover' })
         .composite([{
           input: faceImage,
-          left: 400, // Center position (adjust based on theme)
-          top: 300,
+          left: centerX,
+          top: centerY,
           blend: 'over'
         }])
         .jpeg({ quality: options.quality || 90 })
