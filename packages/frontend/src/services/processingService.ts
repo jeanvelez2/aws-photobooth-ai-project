@@ -188,6 +188,14 @@ export class ProcessingService {
           throw new Error('Invalid response: missing job ID');
         }
         
+        // Convert date strings to Date objects
+        if (result.createdAt && typeof result.createdAt === 'string') {
+          result.createdAt = new Date(result.createdAt);
+        }
+        if (result.completedAt && typeof result.completedAt === 'string') {
+          result.completedAt = new Date(result.completedAt);
+        }
+        
         this.recordSuccess(endpoint);
         return result;
       };
@@ -291,7 +299,17 @@ export class ProcessingService {
         throw error;
       }
 
-      return response.json();
+      const result = await response.json();
+      
+      // Convert date strings to Date objects
+      if (result.createdAt && typeof result.createdAt === 'string') {
+        result.createdAt = new Date(result.createdAt);
+      }
+      if (result.completedAt && typeof result.completedAt === 'string') {
+        result.completedAt = new Date(result.completedAt);
+      }
+      
+      return result;
     } catch (error) {
       // Handle network errors specifically
       if (error instanceof TypeError && error.message.includes('fetch')) {

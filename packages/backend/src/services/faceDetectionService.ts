@@ -42,7 +42,38 @@ export class FaceDetectionService {
     console.log(`[FACE_DETECTION] Initialized with bucket: ${this.bucketName}, region: ${config.aws.region}`);
   }
 
-  async detectFaces(imageKey: string): Promise<FaceDetectionResult> {
+  private extractS3KeyFromUrl(urlOrKey: string): string {
+    // If it's already an S3 key (no protocol), return as-is
+    if (!urlOrKey.startsWith('http')) {
+      return urlOrKey;
+    }
+
+    try {
+      const url = new URL(urlOrKey);
+      
+      // Handle CloudFront URLs
+      if (url.hostname.includes('cloudfront.net')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      // Handle direct S3 URLs
+      if (url.hostname.includes('s3.amazonaws.com')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      // Handle S3 bucket URLs (bucket.s3.region.amazonaws.com)
+      if (url.hostname.includes('.s3.') && url.hostname.includes('.amazonaws.com')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      throw new Error(`Unsupported URL format: ${urlOrKey}`);
+    } catch (error) {
+      throw new Error(`Unable to extract S3 key from URL: ${urlOrKey}`);
+    }
+  }
+
+  async detectFaces(imageKeyOrUrl: string): Promise<FaceDetectionResult> {
+    const imageKey = this.extractS3KeyFromUrl(imageKeyOrUrl);
     console.log(`[FACE_DETECTION] Starting face detection for S3 object: s3://${this.bucketName}/${imageKey}`);
     try {
       const input: DetectFacesCommandInput = {

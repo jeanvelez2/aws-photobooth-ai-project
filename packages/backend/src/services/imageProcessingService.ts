@@ -37,10 +37,41 @@ export class ImageProcessingService {
     console.log(`[IMAGE_PROCESSING] Initialized with bucket: ${this.bucketName}, region: ${config.aws.region}`);
   }
 
+  private extractS3KeyFromUrl(urlOrKey: string): string {
+    // If it's already an S3 key (no protocol), return as-is
+    if (!urlOrKey.startsWith('http')) {
+      return urlOrKey;
+    }
+
+    try {
+      const url = new URL(urlOrKey);
+      
+      // Handle CloudFront URLs
+      if (url.hostname.includes('cloudfront.net')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      // Handle direct S3 URLs
+      if (url.hostname.includes('s3.amazonaws.com')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      // Handle S3 bucket URLs (bucket.s3.region.amazonaws.com)
+      if (url.hostname.includes('.s3.') && url.hostname.includes('.amazonaws.com')) {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      throw new Error(`Unsupported URL format: ${urlOrKey}`);
+    } catch (error) {
+      throw new Error(`Unable to extract S3 key from URL: ${urlOrKey}`);
+    }
+  }
+
   async processImage(
-    inputImageKey: string,
+    inputImageKeyOrUrl: string,
     options: ProcessingOptions
   ): Promise<ProcessingResult> {
+    const inputImageKey = this.extractS3KeyFromUrl(inputImageKeyOrUrl);
     const startTime = Date.now();
     console.log(`[IMAGE_PROCESSING] Starting image processing for ${inputImageKey} with options:`, options);
     
