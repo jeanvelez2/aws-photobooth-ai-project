@@ -43,7 +43,7 @@ export class FaceDetectionService {
   }
 
   async detectFaces(imageKey: string): Promise<FaceDetectionResult> {
-    console.log(`[FACE_DETECTION] Starting face detection for image: ${imageKey} in bucket: ${this.bucketName}`);
+    console.log(`[FACE_DETECTION] Starting face detection for S3 object: s3://${this.bucketName}/${imageKey}`);
     try {
       const input: DetectFacesCommandInput = {
         Image: {

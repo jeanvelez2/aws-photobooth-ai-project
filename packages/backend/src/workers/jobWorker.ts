@@ -5,6 +5,7 @@ import { ThemeService } from '../services/themeService.js';
 import { GenderAdaptiveThemeService } from '../services/genderAdaptiveThemeService.js';
 import { logger } from '../utils/logger.js';
 import { metricsService } from '../services/metricsService.js';
+import { config } from '../config/index.js';
 
 export class JobWorker {
   private faceDetection = new FaceDetectionService();
@@ -64,7 +65,16 @@ export class JobWorker {
       console.log(`[WORKER] Getting job ${jobId} details`);
       const job = await processingJobService.getJob(jobId);
       if (!job) throw new Error('Job not found');
-      console.log(`[WORKER] Job details:`, { jobId, originalImageUrl: job.originalImageUrl, themeId: job.themeId });
+      console.log(`[WORKER] Job details:`, { 
+        jobId, 
+        originalImageUrl: job.originalImageUrl, 
+        themeId: job.themeId,
+        variantId: job.variantId,
+        outputFormat: job.outputFormat,
+        status: job.status,
+        createdAt: job.createdAt,
+        retryCount: job.retryCount
+      });
 
       console.log(`[WORKER] Getting theme ${job.themeId}`);
       const theme = await this.themeService.getThemeById(job.themeId);
@@ -79,8 +89,12 @@ export class JobWorker {
         throw new Error(`Theme ${job.themeId} has no variants`);
       }
 
-      console.log(`[WORKER] Starting face detection for ${job.originalImageUrl}`);
+      console.log(`[WORKER] Starting face detection for image: ${job.originalImageUrl}`);
+      console.log(`[WORKER] S3 bucket: ${config.aws.s3.bucketName}`);
+      console.log(`[WORKER] Full S3 path: s3://${config.aws.s3.bucketName}/${job.originalImageUrl}`);
+      console.log(`[WORKER] About to call faceDetection.detectFaces()`);
       const faceData = await this.faceDetection.detectFaces(job.originalImageUrl);
+      console.log(`[WORKER] faceDetection.detectFaces() returned successfully`);
       if (!faceData.faces.length) throw new Error('No faces detected');
       console.log(`[WORKER] Face detection completed: ${faceData.faces.length} faces found`);
 
@@ -127,6 +141,10 @@ export class JobWorker {
       
     } catch (error) {
       console.log(`[WORKER] Job ${jobId} failed with error:`, error);
+      console.log(`[WORKER] Error type:`, typeof error);
+      console.log(`[WORKER] Error name:`, error instanceof Error ? error.name : 'Unknown');
+      console.log(`[WORKER] Error message:`, error instanceof Error ? error.message : String(error));
+      console.log(`[WORKER] Error stack:`, error instanceof Error ? error.stack : 'No stack');
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.log(`[WORKER] Updating job ${jobId} to failed status with error: ${errorMessage}`);
       await processingJobService.updateJobStatus(jobId, 'failed', {
