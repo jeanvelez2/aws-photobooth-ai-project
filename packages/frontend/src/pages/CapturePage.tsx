@@ -16,12 +16,14 @@ export default function CapturePage() {
   }, [dispatch]);
 
   const handlePhotoCapture = (photo: CapturedPhoto) => {
+    console.log('Photo captured, starting upload...');
     setCapturedPhoto(photo);
     setIsUploading(true);
     // Photo is already set in global state by CameraCapture component
   };
 
   const handlePhotoUploaded = (s3Url: string, photo: CapturedPhoto) => {
+    console.log('Photo uploaded successfully, S3 URL:', s3Url);
     // Update the photo with S3 URL
     const updatedPhoto = { ...photo, s3Url };
     setCapturedPhoto(updatedPhoto);

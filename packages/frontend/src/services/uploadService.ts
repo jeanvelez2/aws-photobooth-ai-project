@@ -152,18 +152,31 @@ export class ImageUploadService {
 
       // Handle response
       xhr.addEventListener('load', () => {
+        console.log('S3 upload response:', {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          responseHeaders: xhr.getAllResponseHeaders()
+        });
+        
         if (xhr.status >= 200 && xhr.status < 300) {
+          console.log('S3 upload successful');
           resolve();
         } else {
+          console.error('S3 upload failed:', {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            response: xhr.responseText
+          });
           reject(new UploadError(
-            `Upload failed with status ${xhr.status}`,
+            `Upload failed with status ${xhr.status}: ${xhr.statusText}`,
             'UPLOAD_FAILED',
             xhr.status >= 500 // Retry on server errors
           ));
         }
       });
 
-      xhr.addEventListener('error', () => {
+      xhr.addEventListener('error', (event) => {
+        console.error('S3 upload network error:', event);
         reject(new UploadError(
           'Network error during upload',
           'NETWORK_ERROR',
@@ -180,9 +193,18 @@ export class ImageUploadService {
       });
 
       // Configure and send request
+      console.log('Configuring XHR request:', {
+        method: 'PUT',
+        url: uploadUrl.substring(0, 100) + '...',
+        contentType: file.type,
+        fileSize: file.size
+      });
+      
       xhr.open('PUT', uploadUrl);
       xhr.setRequestHeader('Content-Type', file.type);
       xhr.timeout = 60000; // 60 second timeout
+      
+      console.log('Sending file to S3...');
       xhr.send(file);
     });
   }
@@ -223,12 +245,26 @@ export class ImageUploadService {
         const fileName = `${timestamp}_${randomId}.${extension}`;
 
         // Get pre-signed URL
+        console.log('Getting presigned URL for:', { fileName, fileType: file.type, fileSize: file.size });
         const { uploadUrl, fileUrl, key, photoId } = await this.getPresignedUrl(fileName, file.type, file.size);
         
-        console.log('Got presigned URL:', { uploadUrl: uploadUrl.substring(0, 100) + '...', key, photoId });
+        console.log('Got presigned URL:', { 
+          uploadUrl: uploadUrl.substring(0, 100) + '...', 
+          fileUrl, 
+          key, 
+          photoId 
+        });
 
-        // Upload file
+        // Upload file to S3
+        console.log('Starting S3 upload:', {
+          fileName,
+          fileSize: file.size,
+          fileType: file.type,
+          uploadUrlDomain: new URL(uploadUrl).hostname
+        });
+        
         await this.uploadToS3(uploadUrl, file, options);
+        console.log('File uploaded successfully to S3:', { key, fileUrl });
 
         return {
           success: true,

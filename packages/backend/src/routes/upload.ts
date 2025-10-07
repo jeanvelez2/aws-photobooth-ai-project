@@ -77,7 +77,16 @@ router.post(
       });
 
       // Construct the S3 URL for the uploaded file
-      const s3Url = `https://${process.env.S3_BUCKET_NAME || config.aws.s3.bucketName}.s3.amazonaws.com/${result.key}`;
+      const bucketName = process.env.S3_BUCKET_NAME || config.aws.s3.bucketName;
+      const s3Url = `https://${bucketName}.s3.amazonaws.com/${result.key}`;
+      
+      logger.info('Returning presigned URL response', {
+        requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
+        key: result.key,
+        photoId: result.photoId,
+        s3Url,
+        bucketName
+      });
       
       res.json({
         success: true,

@@ -27,6 +27,13 @@ export class JobQueue {
    */
   async enqueueJob(request: ProcessingRequest): Promise<ProcessingJob> {
     try {
+      logger.info('Enqueueing job', {
+        photoId: request.photoId,
+        themeId: request.themeId,
+        originalImageUrlType: request.originalImageUrl.startsWith('data:') ? 'base64' : 'url',
+        originalImageUrlLength: request.originalImageUrl.length
+      });
+      
       const job = await processingJobService.createJob(request);
       logger.info('Job enqueued', { 
         jobId: job.jobId?.replace(/[\r\n\t]/g, '') || 'unknown', 
@@ -82,8 +89,8 @@ export class JobQueue {
       throw new Error('Job not found');
     }
 
-    // Extract S3 key from originalImageUrl (assuming it's an S3 URL)
-    const imageKey = this.extractS3KeyFromUrl(job.originalImageUrl);
+    // Extract S3 key from originalImageUrl (or upload if base64)
+    const imageKey = await this.extractS3KeyFromUrl(job.originalImageUrl);
     
     const result = await imageProcessingService.processImage(imageKey, {
       themeId: job.themeId,
@@ -103,34 +110,97 @@ export class JobQueue {
     });
   }
 
-  private extractS3KeyFromUrl(url: string): string {
-    // Handle data URLs (should not happen with new upload flow)
+  private async extractS3KeyFromUrl(url: string): Promise<string> {
+    logger.info('Extracting S3 key from URL', {
+      urlType: url.startsWith('data:') ? 'base64' : 'url',
+      urlLength: url.length,
+      urlPrefix: url.substring(0, 50)
+    });
+    
+    // Handle data URLs by uploading to S3 first
     if (url.startsWith('data:')) {
-      throw new Error('Base64 data URLs are not supported. Image must be uploaded to S3 first.');
+      logger.warn('Received base64 data URL, uploading to S3 as fallback', {
+        dataUrlSize: Math.round(url.length / 1024) + 'KB'
+      });
+      return await this.uploadBase64ToS3(url);
     }
     
     // Extract key from S3 URL patterns:
-    // https://bucket.s3.amazonaws.com/key
-    // https://s3.amazonaws.com/bucket/key
-    // /uploads/key (relative path)
-    let match = url.match(/\/([^/]+\.[^/]+)$/);
+    // https://bucket.s3.amazonaws.com/uploads/anonymous/key.jpg
+    let match = url.match(/[^/]+\.s3\.amazonaws\.com\/(.+)$/);
     if (match) {
-      return match[1];
+      logger.info('Extracted S3 key from bucket URL', { key: match[1] });
+      return match[1]; // Returns full path like "uploads/anonymous/key.jpg"
     }
     
-    // Try to extract from full S3 URL
+    // Try https://s3.amazonaws.com/bucket/key pattern
     match = url.match(/s3\.amazonaws\.com\/[^/]+\/(.+)$/);
     if (match) {
+      logger.info('Extracted S3 key from s3 URL', { key: match[1] });
       return match[1];
     }
     
-    // Try bucket.s3.amazonaws.com pattern
-    match = url.match(/[^/]+\.s3\.amazonaws\.com\/(.+)$/);
-    if (match) {
-      return match[1];
-    }
-    
+    logger.error('Failed to extract S3 key from URL', { url: url.substring(0, 100) });
     throw new Error(`Unable to extract S3 key from URL: ${url.substring(0, 100)}...`);
+  }
+  
+  private async uploadBase64ToS3(dataUrl: string): Promise<string> {
+    logger.info('Starting base64 to S3 upload');
+    
+    try {
+      const { v4: uuidv4 } = await import('uuid');
+      
+      // Extract base64 data and mime type
+      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        logger.error('Invalid data URL format');
+        throw new Error('Invalid data URL format');
+      }
+      
+      const [, mimeType, base64Data] = matches;
+      logger.info('Parsed data URL', {
+        mimeType,
+        base64Size: Math.round(base64Data.length / 1024) + 'KB'
+      });
+      
+      const buffer = Buffer.from(base64Data, 'base64');
+      logger.info('Created buffer', { bufferSize: Math.round(buffer.length / 1024) + 'KB' });
+      
+      // Generate S3 key
+      const extension = mimeType.split('/')[1] || 'jpg';
+      const key = `uploads/fallback/${uuidv4()}.${extension}`;
+      
+      logger.info('Generated S3 key', { key, extension });
+      
+      // Upload to S3
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const s3Client = new S3Client({ region: config.aws.region });
+      
+      logger.info('Uploading to S3', {
+        bucket: config.aws.s3.bucketName,
+        key,
+        contentType: mimeType
+      });
+      
+      await s3Client.send(new PutObjectCommand({
+        Bucket: config.aws.s3.bucketName,
+        Key: key,
+        Body: buffer,
+        ContentType: mimeType,
+        Metadata: {
+          uploadedAt: new Date().toISOString(),
+          source: 'fallback-base64',
+        },
+      }));
+      
+      logger.info('Base64 data uploaded to S3 successfully', { key });
+      return key;
+    } catch (error) {
+      logger.error('Failed to upload base64 to S3', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**

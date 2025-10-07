@@ -173,22 +173,39 @@ export default function CameraCapture({
 
       // Auto-upload if enabled
       if (autoUpload && onPhotoUploaded) {
-        console.log('Auto-uploading captured photo...');
-        const uploadResult = await uploadCameraCapture(blob, {
-          onProgress: (progress) => {
-            console.log(`Upload progress: ${progress.percentage}%`);
-          }
-        });
+        try {
+          console.log('Auto-uploading captured photo...', {
+            blobSize: Math.round(blob.size / 1024) + 'KB',
+            blobType: blob.type
+          });
+          setIsCapturing(true); // Keep loading state during upload
+          
+          const uploadResult = await uploadCameraCapture(blob, {
+            onProgress: (progress) => {
+              console.log(`Upload progress: ${progress.percentage}% (${progress.loaded}/${progress.total})`);
+            }
+          });
 
-        if (uploadResult.success && uploadResult.fileUrl) {
-          console.log('Photo uploaded successfully:', uploadResult.fileUrl);
-          // Update the photo with S3 URL
-          const updatedPhoto = { ...photo, s3Url: uploadResult.fileUrl };
-          dispatch({ type: 'SET_PHOTO', payload: updatedPhoto });
-          onPhotoUploaded(uploadResult.fileUrl, updatedPhoto);
-        } else {
-          console.error('Auto-upload failed:', uploadResult.error);
-          dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });
+          console.log('Upload result:', {
+            success: uploadResult.success,
+            fileUrl: uploadResult.fileUrl,
+            error: uploadResult.error,
+            uploadId: uploadResult.uploadId
+          });
+
+          if (uploadResult.success && uploadResult.fileUrl) {
+            console.log('Photo uploaded successfully to S3:', uploadResult.fileUrl);
+            // Update the photo with S3 URL
+            const updatedPhoto = { ...photo, s3Url: uploadResult.fileUrl };
+            dispatch({ type: 'SET_PHOTO', payload: updatedPhoto });
+            onPhotoUploaded(uploadResult.fileUrl, updatedPhoto);
+          } else {
+            console.error('Auto-upload failed:', uploadResult.error);
+            dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError);
+          dispatch({ type: 'SET_UI_ERROR', payload: 'Failed to upload photo' });
         }
       }
 
