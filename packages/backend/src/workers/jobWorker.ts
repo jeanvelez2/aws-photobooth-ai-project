@@ -1,4 +1,4 @@
-import { JobQueueService } from '../services/jobQueueService.js';
+import { processingJobService } from '../services/processingJob.js';
 import { FaceDetectionService } from '../services/faceDetectionService.js';
 import { ImageProcessingService } from '../services/imageProcessingService.js';
 import { ThemeService } from '../services/themeService.js';
@@ -7,7 +7,6 @@ import { logger } from '../utils/logger.js';
 import { metricsService } from '../services/metricsService.js';
 
 export class JobWorker {
-  private jobQueue = new JobQueueService();
   private faceDetection = new FaceDetectionService();
   private imageProcessing = new ImageProcessingService();
   private themeService = new ThemeService();
@@ -27,12 +26,12 @@ export class JobWorker {
     this.isProcessing = true;
     
     try {
-      const pendingJobs = await this.jobQueue.getPendingJobs();
-      logger.info(`Found ${pendingJobs.length} pending jobs`);
-      
-      for (const job of pendingJobs) {
-        logger.info(`Processing job ${job.jobId}`);
-        await this.processJob(job.jobId);
+      const nextJob = await processingJobService.getNextQueuedJob();
+      if (nextJob) {
+        logger.info(`Found queued job ${nextJob.jobId}`);
+        await this.processJob(nextJob.jobId);
+      } else {
+        logger.info('No queued jobs found');
       }
     } catch (error) {
       logger.error('Error processing jobs:', error);
@@ -46,9 +45,9 @@ export class JobWorker {
     const startTime = Date.now();
     
     try {
-      await this.jobQueue.updateJobStatus(jobId, 'processing');
+      await processingJobService.updateJobStatus(jobId, 'processing');
       
-      const job = await this.jobQueue.getJob(jobId);
+      const job = await processingJobService.getJob(jobId);
       if (!job) throw new Error('Job not found');
 
       // Get theme
@@ -80,9 +79,11 @@ export class JobWorker {
         }
       );
 
-      await this.jobQueue.updateJobStatus(jobId, 'completed', result.resultImageUrl);
-      
       const processingTime = Date.now() - startTime;
+      await processingJobService.updateJobStatus(jobId, 'completed', {
+        resultImageUrl: result.resultImageUrl,
+        processingTimeMs: processingTime
+      });
       await metricsService.recordProcessingTime(processingTime);
       await metricsService.recordJobCount(1, 'completed');
       
@@ -90,7 +91,9 @@ export class JobWorker {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await this.jobQueue.updateJobStatus(jobId, 'failed', undefined, errorMessage);
+      await processingJobService.updateJobStatus(jobId, 'failed', {
+        error: errorMessage
+      });
       await metricsService.recordJobCount(1, 'failed');
       logger.error(`Job ${jobId} failed:`, error);
     }
