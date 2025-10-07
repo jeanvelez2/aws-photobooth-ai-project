@@ -444,6 +444,7 @@ export class PhotoboothStack extends cdk.Stack {
         NODE_ENV: 'production',
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
         APP_CONFIG_SECRET_ARN: this.appConfigSecret.secretArn,
+        CLOUDFRONT_DOMAIN: this.distribution.distributionDomainName,
       },
       healthCheck: {
         command: ['CMD-SHELL', 'nc -z localhost 3001 || exit 1'],

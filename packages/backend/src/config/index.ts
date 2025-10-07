@@ -2,6 +2,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Helper function to generate public URLs for processed images
+export const getPublicImageUrl = (key: string): string => {
+  const cloudfrontDomain = config.aws.cloudfront.distributionDomain;
+  
+  if (cloudfrontDomain) {
+    return `https://${cloudfrontDomain}/${key}`;
+  }
+  
+  // Fallback to S3 URL (for local development)
+  return `https://${config.aws.s3.bucketName}.s3.amazonaws.com/${key}`;
+};
+
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -16,6 +28,9 @@ export const config = {
         process.env.PROCESSING_JOBS_TABLE || 'photobooth-processing-jobs-dev-223057881262',
       themesTable: process.env.THEMES_TABLE || 'photobooth-themes-dev-223057881262',
       useLocal: process.env.USE_LOCAL_DYNAMODB === 'true',
+    },
+    cloudfront: {
+      distributionDomain: process.env.CLOUDFRONT_DOMAIN || process.env.CLOUDFRONT_URL?.replace('https://', '') || null,
     },
   },
   processing: {

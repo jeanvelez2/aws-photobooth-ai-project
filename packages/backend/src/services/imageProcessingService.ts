@@ -5,7 +5,7 @@ import { performanceOptimizer } from './performanceOptimizer.js';
 import { faceDetectionService, FaceDetectionResult } from './faceDetectionService.js';
 import { genderAdaptiveThemeService } from './genderAdaptiveThemeService.js';
 import { v4 as uuidv4 } from 'uuid';
-import { config } from '../config/index.js';
+import { config, getPublicImageUrl } from '../config/index.js';
 
 export interface ProcessingOptions {
   themeId: string;
@@ -127,7 +127,7 @@ export class ImageProcessingService {
 
       return {
         resultImageKey,
-        resultImageUrl: `https://${this.bucketName}.s3.amazonaws.com/${resultImageKey}`,
+        resultImageUrl: getPublicImageUrl(resultImageKey),
         processingTimeMs,
         faceCount: faceDetection.faces.length,
         genderDetection,

@@ -5,7 +5,7 @@ import { uploadRateLimiter } from '../middleware/rateLimiting.js';
 import { validate, commonValidations } from '../middleware/validation.js';
 import { uploadService } from '../services/uploadService.js';
 import { logger } from '../utils/logger.js';
-import { config } from '../config/index.js';
+import { config, getPublicImageUrl } from '../config/index.js';
 
 const router = Router();
 
@@ -76,16 +76,14 @@ router.post(
         photoId: result.photoId,
       });
 
-      // Construct the S3 URL for the uploaded file
-      const bucketName = process.env.S3_BUCKET_NAME || config.aws.s3.bucketName;
-      const s3Url = `https://${bucketName}.s3.amazonaws.com/${result.key}`;
+      // Construct the public URL for the uploaded file (via CloudFront if available)
+      const s3Url = getPublicImageUrl(result.key);
       
       logger.info('Returning presigned URL response', {
         requestId: requestId?.replace(/[\r\n\t]/g, '') || 'unknown',
         key: result.key,
         photoId: result.photoId,
-        s3Url,
-        bucketName
+        s3Url
       });
       
       res.json({
