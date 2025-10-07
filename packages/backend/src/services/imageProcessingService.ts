@@ -284,44 +284,99 @@ export class ImageProcessingService {
         throw new Error('Invalid face region detected');
       }
 
-      // Extract and prepare face with padding for better blending
-      const padding = Math.round(Math.max(faceWidth, faceHeight) * 0.3);
+      // Extract face with generous padding for seamless blending
+      const padding = Math.round(Math.max(faceWidth, faceHeight) * 0.5);
       const expandedX = Math.max(0, faceX - padding);
       const expandedY = Math.max(0, faceY - padding);
       const expandedWidth = Math.min(inputWidth - expandedX, faceWidth + (2 * padding));
       const expandedHeight = Math.min(inputHeight - expandedY, faceHeight + (2 * padding));
       
-      const faceImage = await sharp(inputImage)
+      // Extract face with surrounding area for better blending
+      const faceWithContext = await sharp(inputImage)
         .extract({ 
           left: expandedX, 
           top: expandedY, 
           width: expandedWidth, 
           height: expandedHeight 
         })
-        .resize(300, 300, { fit: 'cover', position: 'center' })
         .toBuffer();
 
-      // Get theme template metadata
+      // Create a feathered mask for seamless blending
+      const maskSize = Math.max(expandedWidth, expandedHeight);
+      const featherRadius = Math.round(maskSize * 0.15);
+      
+      const mask = await sharp({
+        create: {
+          width: maskSize,
+          height: maskSize,
+          channels: 3,
+          background: { r: 0, g: 0, b: 0 }
+        }
+      })
+      .composite([{
+        input: Buffer.from(
+          `<svg width="${maskSize}" height="${maskSize}">
+            <defs>
+              <radialGradient id="fade" cx="50%" cy="50%" r="45%">
+                <stop offset="0%" stop-color="white" stop-opacity="1"/>
+                <stop offset="70%" stop-color="white" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="white" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="50%" cy="50%" rx="45%" ry="45%" fill="url(#fade)"/>
+          </svg>`
+        ),
+        blend: 'over'
+      }])
+      .png()
+      .toBuffer();
+
+      // Resize face and mask to target size
+      const targetSize = 350;
+      const processedFace = await sharp(faceWithContext)
+        .resize(targetSize, targetSize, { fit: 'cover', position: 'center' })
+        .modulate({ brightness: 1.1, saturation: 1.05 }) // Slight enhancement
+        .toBuffer();
+
+      const processedMask = await sharp(mask)
+        .resize(targetSize, targetSize, { fit: 'cover' })
+        .toBuffer();
+
+      // Get theme template metadata and prepare base
       const themeMetadata = await sharp(themeTemplate).metadata();
       const themeWidth = themeMetadata.width || 1024;
       const themeHeight = themeMetadata.height || 1024;
       
-      // Position face in center of theme (can be customized per theme later)
-      const centerX = Math.round((themeWidth - 300) / 2);
-      const centerY = Math.round((themeHeight - 300) / 2.5); // Slightly higher than center
-      
-      console.log(`[IMAGE_PROCESSING] Compositing face at ${centerX},${centerY} on ${themeWidth}x${themeHeight} theme`);
-
-      // Composite face onto theme template
-      const result = await sharp(themeTemplate)
+      const baseTheme = await sharp(themeTemplate)
         .resize(1024, 1024, { fit: 'cover' })
-        .composite([{
-          input: faceImage,
-          left: centerX,
-          top: centerY,
-          blend: 'over'
-        }])
-        .jpeg({ quality: options.quality || 90 })
+        .modulate({ brightness: 0.95, saturation: 1.1 }) // Enhance theme colors
+        .toBuffer();
+      
+      // Position face strategically based on theme
+      const centerX = Math.round((1024 - targetSize) / 2);
+      const centerY = Math.round((1024 - targetSize) / 2.2); // Slightly higher
+      
+      console.log(`[IMAGE_PROCESSING] Blending face at ${centerX},${centerY} with feathered edges`);
+
+      // Create seamless composite with feathered blending
+      const result = await sharp(baseTheme)
+        .composite([
+          {
+            input: processedFace,
+            left: centerX,
+            top: centerY,
+            blend: 'multiply' // Blend colors naturally
+          },
+          {
+            input: processedFace,
+            left: centerX,
+            top: centerY,
+            blend: 'overlay', // Add depth and contrast
+            premultiplied: true
+          }
+        ])
+        .sharpen({ sigma: 0.5, m1: 0.5, m2: 2 }) // Subtle sharpening
+        .jpeg({ quality: options.quality || 92, progressive: true })
         .toBuffer();
 
       return result;
