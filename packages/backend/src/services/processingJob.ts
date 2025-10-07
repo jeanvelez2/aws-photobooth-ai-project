@@ -101,14 +101,14 @@ export class ProcessingJobService {
     };
     const expressionAttributeValues: Record<string, any> = {
       ':status': status,
-      ':updatedAt': now,
+      ':updatedAt': now.toISOString(),
     };
 
     // Add completedAt for completed/failed status
     if (status === 'completed' || status === 'failed') {
       updateExpression.push('#completedAt = :completedAt');
       expressionAttributeNames['#completedAt'] = 'completedAt';
-      expressionAttributeValues[':completedAt'] = now;
+      expressionAttributeValues[':completedAt'] = now.toISOString();
     }
 
     // Add optional updates
