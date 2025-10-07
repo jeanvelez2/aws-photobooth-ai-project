@@ -3,6 +3,7 @@ export interface CapturedPhoto {
   id: string;
   blob: Blob;
   dataUrl: string;
+  s3Url?: string; // S3 URL after upload
   timestamp: Date;
   dimensions: {
     width: number;

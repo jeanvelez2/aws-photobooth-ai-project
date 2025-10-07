@@ -5,6 +5,7 @@ import { uploadRateLimiter } from '../middleware/rateLimiting.js';
 import { validate, commonValidations } from '../middleware/validation.js';
 import { uploadService } from '../services/uploadService.js';
 import { logger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const router = Router();
 
@@ -75,12 +76,16 @@ router.post(
         photoId: result.photoId,
       });
 
+      // Construct the S3 URL for the uploaded file
+      const s3Url = `https://${process.env.S3_BUCKET_NAME || config.aws.s3.bucketName}.s3.amazonaws.com/${result.key}`;
+      
       res.json({
         success: true,
         data: {
           uploadUrl: result.uploadUrl,
           key: result.key,
           photoId: result.photoId,
+          s3Url: s3Url,
           expiresIn: 300,
         },
       });

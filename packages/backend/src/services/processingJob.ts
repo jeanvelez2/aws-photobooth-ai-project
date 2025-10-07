@@ -86,6 +86,30 @@ export class ProcessingJobService {
   }
 
   /**
+   * Retry with exponential backoff for DynamoDB throttling
+   */
+  private async retryWithBackoff<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        const isThrottling = error?.name === 'ProvisionedThroughputExceededException' || 
+                            error?.message?.includes('Throughput exceeds') ||
+                            error?.message?.includes('capacity');
+        
+        if (isThrottling && attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 5000); // Max 5s delay
+          console.log(`[RETRY] DynamoDB throttling, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded');
+  }
+
+  /**
    * Update job status and related fields
    */
   async updateJobStatus(
@@ -131,15 +155,17 @@ export class ProcessingJobService {
     }
 
     try {
-      await dynamoDBDocClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { jobId: jobId },
-          UpdateExpression: `SET ${updateExpression.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
-        })
-      );
+      await this.retryWithBackoff(async () => {
+        await dynamoDBDocClient.send(
+          new UpdateCommand({
+            TableName: this.tableName,
+            Key: { jobId: jobId },
+            UpdateExpression: `SET ${updateExpression.join(', ')}`,
+            ExpressionAttributeNames: expressionAttributeNames,
+            ExpressionAttributeValues: expressionAttributeValues,
+          })
+        );
+      });
 
       logger.info('Processing job status updated', { jobId, status, updates });
     } catch (error) {
@@ -185,21 +211,23 @@ export class ProcessingJobService {
    */
   async getJobsByStatus(status: ProcessingJob['status'], limit = 50): Promise<ProcessingJob[]> {
     try {
-      const result = await dynamoDBDocClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: 'status-createdAt-index',
-          KeyConditionExpression: '#status = :status',
-          ExpressionAttributeNames: {
-            '#status': 'status',
-          },
-          ExpressionAttributeValues: {
-            ':status': status,
-          },
-          Limit: limit,
-          ScanIndexForward: false, // Most recent first
-        })
-      );
+      const result = await this.retryWithBackoff(async () => {
+        return await dynamoDBDocClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: 'status-createdAt-index',
+            KeyConditionExpression: '#status = :status',
+            ExpressionAttributeNames: {
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':status': status,
+            },
+            Limit: limit,
+            ScanIndexForward: false, // Most recent first
+          })
+        );
+      });
 
       return (result.Items || []).map(item => {
         const { ttl, ...job } = item;
@@ -236,30 +264,12 @@ export class ProcessingJobService {
   async getNextQueuedJob(): Promise<ProcessingJob | null> {
     try {
       console.log(`Querying ${this.tableName} for queued jobs using GSI`);
-      const result = await dynamoDBDocClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: 'status-createdAt-index',
-          KeyConditionExpression: '#status = :status',
-          ExpressionAttributeNames: {
-            '#status': 'status',
-          },
-          ExpressionAttributeValues: {
-            ':status': 'queued',
-          },
-          Limit: 1,
-          ScanIndexForward: true, // Oldest first (FIFO)
-        })
-      );
-
-      console.log(`GSI query returned ${result.Items?.length || 0} items`);
-      if (!result.Items || result.Items.length === 0) {
-        // Try fallback: scan table directly for queued jobs
-        console.log('GSI returned 0 items, trying direct scan fallback');
-        const scanResult = await dynamoDBDocClient.send(
+      const result = await this.retryWithBackoff(async () => {
+        return await dynamoDBDocClient.send(
           new QueryCommand({
             TableName: this.tableName,
-            FilterExpression: '#status = :status',
+            IndexName: 'status-createdAt-index',
+            KeyConditionExpression: '#status = :status',
             ExpressionAttributeNames: {
               '#status': 'status',
             },
@@ -267,15 +277,14 @@ export class ProcessingJobService {
               ':status': 'queued',
             },
             Limit: 1,
+            ScanIndexForward: true, // Oldest first (FIFO)
           })
         );
-        console.log(`Direct scan returned ${scanResult.Items?.length || 0} items`);
-        if (!scanResult.Items || scanResult.Items.length === 0) {
-          return null;
-        }
-        const scanItem = scanResult.Items[0];
-        const { ttl, ...scanJob } = scanItem as any;
-        return scanJob as ProcessingJob;
+      });
+
+      console.log(`GSI query returned ${result.Items?.length || 0} items`);
+      if (!result.Items || result.Items.length === 0) {
+        return null;
       }
 
       const item = result.Items[0];

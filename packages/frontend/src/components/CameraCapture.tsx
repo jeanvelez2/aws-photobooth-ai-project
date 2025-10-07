@@ -182,7 +182,10 @@ export default function CameraCapture({
 
         if (uploadResult.success && uploadResult.fileUrl) {
           console.log('Photo uploaded successfully:', uploadResult.fileUrl);
-          onPhotoUploaded(uploadResult.fileUrl, photo);
+          // Update the photo with S3 URL
+          const updatedPhoto = { ...photo, s3Url: uploadResult.fileUrl };
+          dispatch({ type: 'SET_PHOTO', payload: updatedPhoto });
+          onPhotoUploaded(uploadResult.fileUrl, updatedPhoto);
         } else {
           console.error('Auto-upload failed:', uploadResult.error);
           dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });
@@ -215,7 +218,10 @@ export default function CameraCapture({
 
     if (uploadResult.success && uploadResult.fileUrl && onPhotoUploaded) {
       console.log('Photo uploaded successfully:', uploadResult.fileUrl);
-      onPhotoUploaded(uploadResult.fileUrl, currentPhoto);
+      // Update the photo with S3 URL
+      const updatedPhoto = { ...currentPhoto, s3Url: uploadResult.fileUrl };
+      dispatch({ type: 'SET_PHOTO', payload: updatedPhoto });
+      onPhotoUploaded(uploadResult.fileUrl, updatedPhoto);
     } else {
       console.error('Upload failed:', uploadResult.error);
       dispatch({ type: 'SET_UI_ERROR', payload: `Upload failed: ${uploadResult.error}` });

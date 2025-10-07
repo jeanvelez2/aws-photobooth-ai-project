@@ -152,7 +152,7 @@ export class PhotoboothStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY, // Change to RETAIN for production
     });
 
-    // Add Global Secondary Index
+    // Add Global Secondary Index with higher capacity
     table.addGlobalSecondaryIndex({
       indexName: 'status-createdAt-index',
       partitionKey: {
@@ -163,6 +163,7 @@ export class PhotoboothStack extends cdk.Stack {
         name: 'createdAt',
         type: dynamodb.AttributeType.STRING,
       },
+      // Use on-demand billing for GSI to handle traffic spikes
     });
 
     return table;

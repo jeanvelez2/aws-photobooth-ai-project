@@ -8,6 +8,7 @@ export default function CapturePage() {
   const navigate = useNavigate();
   const { state, dispatch } = useAppContext();
   const [capturedPhoto, setCapturedPhoto] = useState<CapturedPhoto | null>(state.app.currentPhoto);
+  const [isUploading, setIsUploading] = useState(false);
 
   React.useEffect(() => {
     // Set current step when component mounts
@@ -16,16 +17,26 @@ export default function CapturePage() {
 
   const handlePhotoCapture = (photo: CapturedPhoto) => {
     setCapturedPhoto(photo);
+    setIsUploading(true);
     // Photo is already set in global state by CameraCapture component
+  };
+
+  const handlePhotoUploaded = (s3Url: string, photo: CapturedPhoto) => {
+    // Update the photo with S3 URL
+    const updatedPhoto = { ...photo, s3Url };
+    setCapturedPhoto(updatedPhoto);
+    dispatch({ type: 'SET_PHOTO', payload: updatedPhoto });
+    setIsUploading(false);
   };
 
   const handleRetake = () => {
     setCapturedPhoto(null);
     dispatch({ type: 'SET_PHOTO', payload: null });
+    setIsUploading(false);
   };
 
   const handleContinue = () => {
-    if (capturedPhoto) {
+    if (capturedPhoto && (capturedPhoto as any).s3Url) {
       navigate('/themes');
     }
   };
@@ -47,6 +58,8 @@ export default function CapturePage() {
           /* Camera capture mode */
           <CameraCapture 
             onPhotoCapture={handlePhotoCapture}
+            onPhotoUploaded={handlePhotoUploaded}
+            autoUpload={true}
             className="mb-6"
           />
         ) : (
@@ -63,15 +76,17 @@ export default function CapturePage() {
             <div className="flex justify-center space-x-4">
               <button
                 onClick={handleRetake}
-                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                disabled={isUploading}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Retake Photo
               </button>
               <button
                 onClick={handleContinue}
-                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                disabled={isUploading || !(capturedPhoto as any)?.s3Url}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Continue to Themes
+                {isUploading ? 'Uploading...' : 'Continue to Themes'}
               </button>
             </div>
             
@@ -79,6 +94,12 @@ export default function CapturePage() {
             <div className="text-center text-sm text-gray-500">
               <p>Photo captured: {capturedPhoto.dimensions.width} × {capturedPhoto.dimensions.height}px</p>
               <p>Size: {(capturedPhoto.blob.size / 1024 / 1024).toFixed(2)} MB</p>
+              {isUploading && (
+                <p className="text-blue-600 font-medium">Uploading to cloud storage...</p>
+              )}
+              {(capturedPhoto as any)?.s3Url && (
+                <p className="text-green-600 font-medium">✓ Ready for processing</p>
+              )}
             </div>
           </div>
         )}

@@ -111,7 +111,7 @@ export class ImageUploadService {
     const result = await response.json();
     return {
       uploadUrl: result.data.uploadUrl,
-      fileUrl: `${this.API_BASE_URL.replace('/api', '')}/uploads/${result.data.key}`,
+      fileUrl: result.data.s3Url || `https://s3.amazonaws.com/${result.data.key}`,
       key: result.data.key,
       photoId: result.data.photoId
     };

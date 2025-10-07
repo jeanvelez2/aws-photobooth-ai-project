@@ -67,19 +67,24 @@ export default function ProcessingPage() {
       return;
     }
 
-    // Create processing request with proper S3 URL
-    const originalImageUrl = (currentPhoto as any).s3Url || currentPhoto.dataUrl;
+    // Ensure we have S3 URL for processing
+    if (!currentPhoto.s3Url) {
+      console.error('ProcessingPage: No S3 URL available for photo', currentPhoto);
+      navigate('/');
+      return;
+    }
+    
     const request: ProcessingRequest = {
       photoId: currentPhoto.id,
       themeId: selectedTheme.id,
       variantId: selectedVariant?.id,
       outputFormat: 'jpeg',
-      originalImageUrl, // Use S3 URL if available
+      originalImageUrl: currentPhoto.s3Url,
     };
 
     console.log('ProcessingPage: Created request:', {
       ...request,
-      originalImageUrl: originalImageUrl?.substring(0, 100) + '...' // Truncate for logging
+      originalImageUrl: request.originalImageUrl?.substring(0, 100) + '...' // Truncate for logging
     });
 
     setProcessingRequest(request);

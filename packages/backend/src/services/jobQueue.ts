@@ -104,14 +104,33 @@ export class JobQueue {
   }
 
   private extractS3KeyFromUrl(url: string): string {
-    // Handle data URLs (fallback to demo)
+    // Handle data URLs (should not happen with new upload flow)
     if (url.startsWith('data:')) {
-      return 'demo/placeholder.jpg';
+      throw new Error('Base64 data URLs are not supported. Image must be uploaded to S3 first.');
     }
     
-    // Extract key from S3 URL
-    const match = url.match(/\/([^/]+\.[^/]+)$/);
-    return match ? match[1] : 'demo/placeholder.jpg';
+    // Extract key from S3 URL patterns:
+    // https://bucket.s3.amazonaws.com/key
+    // https://s3.amazonaws.com/bucket/key
+    // /uploads/key (relative path)
+    let match = url.match(/\/([^/]+\.[^/]+)$/);
+    if (match) {
+      return match[1];
+    }
+    
+    // Try to extract from full S3 URL
+    match = url.match(/s3\.amazonaws\.com\/[^/]+\/(.+)$/);
+    if (match) {
+      return match[1];
+    }
+    
+    // Try bucket.s3.amazonaws.com pattern
+    match = url.match(/[^/]+\.s3\.amazonaws\.com\/(.+)$/);
+    if (match) {
+      return match[1];
+    }
+    
+    throw new Error(`Unable to extract S3 key from URL: ${url.substring(0, 100)}...`);
   }
 
   /**
