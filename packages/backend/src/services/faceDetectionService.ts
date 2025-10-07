@@ -159,8 +159,8 @@ export class FaceDetectionService {
   }
 
   validateFaceForProcessing(face: FaceDetectionResult['faces'][0]): { valid: boolean; reason?: string } {
-    const minConfidence = 95;
-    const minFaceSize = 0.1; // 10% of image
+    const minConfidence = 85; // Lower confidence threshold
+    const minFaceSize = 0.02; // 2% of image (much smaller)
 
     if (face.confidence < minConfidence) {
       return { valid: false, reason: 'Face confidence too low' };
