@@ -14,6 +14,10 @@ import { ProcessingJob, ProcessingRequest } from 'shared';
 export class ProcessingJobService {
   private tableName = config.aws.dynamodb.processingJobsTable;
 
+  constructor() {
+    console.log(`ProcessingJobService using table: ${this.tableName}`);
+  }
+
   /**
    * Create a new processing job
    */

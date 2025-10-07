@@ -26,12 +26,13 @@ export class JobWorker {
     this.isProcessing = true;
     
     try {
+      logger.info('Worker checking for queued jobs using processingJobService');
       const nextJob = await processingJobService.getNextQueuedJob();
       if (nextJob) {
         logger.info(`Found queued job ${nextJob.jobId}`);
         await this.processJob(nextJob.jobId);
       } else {
-        logger.info('No queued jobs found');
+        logger.info('No queued jobs found by processingJobService');
       }
     } catch (error) {
       logger.error('Error processing jobs:', error);
