@@ -656,13 +656,17 @@ export class ImageProcessingPipeline {
     // Validate URL format and prevent path traversal
     try {
       const url = new URL(sanitizedUrl);
-      // Only allow specific trusted domains
-      const allowedDomains = ['s3.amazonaws.com', 'amazonaws.com'];
+      // Allow CloudFront and S3 domains
+      const allowedDomains = ['s3.amazonaws.com', 'amazonaws.com', 'cloudfront.net'];
       const isAllowedDomain = allowedDomains.some(domain => 
         url.hostname.endsWith(domain)
       );
       
       if (!isAllowedDomain) {
+        logger.error('Template URL domain not allowed', { 
+          hostname: url.hostname,
+          allowedDomains 
+        });
         throw new Error('Template URL domain not allowed');
       }
       
@@ -672,6 +676,7 @@ export class ImageProcessingPipeline {
       }
     } catch (urlError) {
       logger.error('Invalid template URL format', {
+        templateUrl: sanitizedUrl,
         error: urlError instanceof Error ? urlError.message : 'Unknown error'
       });
       throw new Error('Invalid template URL format');

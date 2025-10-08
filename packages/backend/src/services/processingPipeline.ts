@@ -190,6 +190,14 @@ export class ProcessingPipeline {
       const url = new URL(imageUrl);
       const pathParts = url.pathname.split('/').filter(part => part.length > 0);
       
+      logger.info('Parsing S3 URL', {
+        originalUrl: imageUrl,
+        hostname: url.hostname,
+        pathname: url.pathname,
+        pathParts,
+        configuredBucket: config.aws.s3.bucketName
+      });
+      
       if (pathParts.length < 1) {
         throw new Error('Invalid S3 URL format');
       }
@@ -201,18 +209,27 @@ export class ProcessingPipeline {
         // Format: https://bucket.s3.amazonaws.com/key
         bucket = url.hostname.split('.')[0] || '';
         key = pathParts.join('/');
+        logger.info('Detected direct S3 URL', { bucket, key });
       } else if (url.hostname.includes('cloudfront.net')) {
         // CloudFront URL: use configured bucket, full path as key
         bucket = config.aws.s3.bucketName;
         key = pathParts.join('/');
+        logger.info('Detected CloudFront URL', { bucket, key });
       } else {
         // Format: https://s3.amazonaws.com/bucket/key
         bucket = pathParts[0] || '';
         key = pathParts.slice(1).join('/');
+        logger.info('Detected S3 path-style URL', { bucket, key });
       }
 
       if (!bucket || !key) {
-        throw new Error('Could not extract bucket and key from S3 URL');
+        logger.error('Failed to extract S3 key from URL', {
+          url: imageUrl,
+          bucket,
+          key,
+          pathParts
+        });
+        throw new Error(`Unable to extract S3 key from URL: ${imageUrl}`);
       }
 
       logger.info('Downloading image from S3', { bucket, key, originalUrl: imageUrl });
