@@ -48,7 +48,7 @@ export class BedrockService {
       
       const prompt = contentModerationService.sanitizePrompt(rawPrompt);
       
-      // Use Stable Diffusion XL for image generation
+      // Use Stable Diffusion XL for image generation (on-demand version)
       const modelId = 'stability.stable-diffusion-xl-v1';
       
       const requestBody = {

@@ -184,7 +184,12 @@ export class ImageProcessingService {
           themeTemplate = poseResult.imageBuffer;
           console.log(`[IMAGE_PROCESSING] ✅ Dynamic pose generated successfully with action: ${options.action}`);
         } catch (bedrockError) {
-          console.log(`[IMAGE_PROCESSING] ❌ Bedrock generation failed, falling back to static template:`, bedrockError);
+          console.log(`[IMAGE_PROCESSING] ❌ Bedrock generation failed:`, {
+            error: bedrockError.message,
+            code: bedrockError.code,
+            name: bedrockError.name
+          });
+          console.log(`[IMAGE_PROCESSING] Using static template with enhanced face blending`);
           themeTemplate = baseTemplate;
         }
       } else {
@@ -378,23 +383,46 @@ export class ImageProcessingService {
         height: 280
       };
 
-      // Resize and adapt user face to match template region
+      // Analyze template colors around face region for better matching
+      const templateFaceArea = await sharp(templateBuffer)
+        .extract({
+          left: Math.max(0, targetRegion.x - 20),
+          top: Math.max(0, targetRegion.y - 20),
+          width: Math.min(1024 - targetRegion.x, targetRegion.width + 40),
+          height: Math.min(1024 - targetRegion.y, targetRegion.height + 40)
+        })
+        .toBuffer();
+      
+      const templateStats = await sharp(templateFaceArea).stats();
+      const templateColor = {
+        r: templateStats.channels[0].mean,
+        g: templateStats.channels[1].mean,
+        b: templateStats.channels[2].mean
+      };
+
+      // Adapt user face to match template lighting and colors
       const adaptedFace = await sharp(userFaceBuffer)
         .resize(targetRegion.width, targetRegion.height, { fit: 'cover', position: 'center' })
-        .modulate({ brightness: 1.05, saturation: 1.1, hue: 0 })
+        .modulate({
+          brightness: templateColor.r > 128 ? 1.15 : 0.85,
+          saturation: templateColor.g > 128 ? 1.2 : 0.9,
+          hue: templateColor.b > templateColor.r ? 5 : -5
+        })
+        .linear(1.1, -(128 * 1.1) + 128) // Enhance contrast
         .toBuffer();
 
-      // Create seamless mask
+      // Create feathered mask for seamless blending
       const maskSvg = `<svg width="${targetRegion.width}" height="${targetRegion.height}">
         <defs>
-          <radialGradient id="mask" cx="50%" cy="50%" r="45%">
+          <radialGradient id="mask" cx="50%" cy="50%" r="48%">
             <stop offset="0%" stop-color="white" stop-opacity="1"/>
-            <stop offset="80%" stop-color="white" stop-opacity="0.95"/>
-            <stop offset="95%" stop-color="white" stop-opacity="0.5"/>
+            <stop offset="70%" stop-color="white" stop-opacity="1"/>
+            <stop offset="85%" stop-color="white" stop-opacity="0.8"/>
+            <stop offset="95%" stop-color="white" stop-opacity="0.3"/>
             <stop offset="100%" stop-color="white" stop-opacity="0"/>
           </radialGradient>
         </defs>
-        <ellipse cx="50%" cy="50%" rx="45%" ry="45%" fill="url(#mask)"/>
+        <ellipse cx="50%" cy="50%" rx="48%" ry="48%" fill="url(#mask)"/>
       </svg>`;
       
       const mask = await sharp(Buffer.from(maskSvg))
@@ -410,14 +438,27 @@ export class ImageProcessingService {
 
       console.log(`[IMAGE_PROCESSING] Face swapping at ${targetRegion.x},${targetRegion.y} size ${targetRegion.width}x${targetRegion.height}`);
 
-      // Composite face onto template
+      // Multi-layer composite for realistic blending
       const result = await sharp(templateBuffer)
-        .composite([{
-          input: maskedFace,
-          left: targetRegion.x,
-          top: targetRegion.y,
-          blend: 'over'
-        }])
+        .composite([
+          // Base face replacement
+          {
+            input: maskedFace,
+            left: targetRegion.x,
+            top: targetRegion.y,
+            blend: 'over'
+          },
+          // Color matching layer
+          {
+            input: await sharp(maskedFace)
+              .modulate({ brightness: 0.7, saturation: 0.8 })
+              .toBuffer(),
+            left: targetRegion.x,
+            top: targetRegion.y,
+            blend: 'multiply'
+          }
+        ])
+        .sharpen({ sigma: 0.8, m1: 0.5, m2: 2 })
         .jpeg({ quality: options.quality || 90 })
         .toBuffer();
 
