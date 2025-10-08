@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 import { faceDetectionService } from './faceDetection.js';
 import { imageProcessingPipeline } from './imageProcessing.js';
 import { s3Service } from './s3.js';
+import { config } from '../config/index.js';
 import { imageOptimizationService } from './imageOptimization.js';
 import { ProcessingJob, ThemeVariant } from 'shared';
 import { createSubsegment, addAnnotation, addMetadata } from '../middleware/xray.js';
@@ -185,7 +186,7 @@ export class ProcessingPipeline {
    */
   private async downloadImage(imageUrl: string): Promise<Buffer> {
     try {
-      // Extract bucket and key from S3 URL
+      // Extract S3 key from URL (CloudFront or direct S3)
       const url = new URL(imageUrl);
       const pathParts = url.pathname.split('/').filter(part => part.length > 0);
       
@@ -193,14 +194,16 @@ export class ProcessingPipeline {
         throw new Error('Invalid S3 URL format');
       }
 
-      // For URLs like https://bucket.s3.amazonaws.com/key, bucket is in hostname
-      // For URLs like https://s3.amazonaws.com/bucket/key, bucket is first path part
       let bucket: string;
       let key: string;
       
       if (url.hostname.includes('.s3.')) {
         // Format: https://bucket.s3.amazonaws.com/key
         bucket = url.hostname.split('.')[0] || '';
+        key = pathParts.join('/');
+      } else if (url.hostname.includes('cloudfront.net')) {
+        // CloudFront URL: use configured bucket, full path as key
+        bucket = config.aws.s3.bucketName;
         key = pathParts.join('/');
       } else {
         // Format: https://s3.amazonaws.com/bucket/key
@@ -211,6 +214,8 @@ export class ProcessingPipeline {
       if (!bucket || !key) {
         throw new Error('Could not extract bucket and key from S3 URL');
       }
+
+      logger.info('Downloading image from S3', { bucket, key, originalUrl: imageUrl });
 
       // Download from S3
       const imageBuffer = await s3Service.downloadFile(bucket, key);

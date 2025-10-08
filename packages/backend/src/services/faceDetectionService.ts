@@ -43,31 +43,43 @@ export class FaceDetectionService {
   }
 
   private extractS3KeyFromUrl(urlOrKey: string): string {
+    console.log(`[FACE_DETECTION] Extracting S3 key from: ${urlOrKey}`);
+    
     // If it's already an S3 key (no protocol), return as-is
     if (!urlOrKey.startsWith('http')) {
+      console.log(`[FACE_DETECTION] Already an S3 key: ${urlOrKey}`);
       return urlOrKey;
     }
 
     try {
       const url = new URL(urlOrKey);
+      console.log(`[FACE_DETECTION] Parsed URL - hostname: ${url.hostname}, pathname: ${url.pathname}`);
       
       // Handle CloudFront URLs
       if (url.hostname.includes('cloudfront.net')) {
-        return url.pathname.substring(1); // Remove leading slash
+        const key = url.pathname.substring(1); // Remove leading slash
+        console.log(`[FACE_DETECTION] CloudFront URL detected, extracted key: ${key}`);
+        return key;
       }
       
       // Handle direct S3 URLs
       if (url.hostname.includes('s3.amazonaws.com')) {
-        return url.pathname.substring(1); // Remove leading slash
+        const key = url.pathname.substring(1); // Remove leading slash
+        console.log(`[FACE_DETECTION] S3 URL detected, extracted key: ${key}`);
+        return key;
       }
       
       // Handle S3 bucket URLs (bucket.s3.region.amazonaws.com)
       if (url.hostname.includes('.s3.') && url.hostname.includes('.amazonaws.com')) {
-        return url.pathname.substring(1); // Remove leading slash
+        const key = url.pathname.substring(1); // Remove leading slash
+        console.log(`[FACE_DETECTION] S3 bucket URL detected, extracted key: ${key}`);
+        return key;
       }
       
+      console.log(`[FACE_DETECTION] Unsupported URL format: ${urlOrKey}`);
       throw new Error(`Unsupported URL format: ${urlOrKey}`);
     } catch (error) {
+      console.log(`[FACE_DETECTION] Failed to extract S3 key:`, error);
       throw new Error(`Unable to extract S3 key from URL: ${urlOrKey}`);
     }
   }
@@ -75,6 +87,7 @@ export class FaceDetectionService {
   async detectFaces(imageKeyOrUrl: string): Promise<FaceDetectionResult> {
     const imageKey = this.extractS3KeyFromUrl(imageKeyOrUrl);
     console.log(`[FACE_DETECTION] Starting face detection for S3 object: s3://${this.bucketName}/${imageKey}`);
+    console.log(`[FACE_DETECTION] Using bucket: ${this.bucketName}, region: ${config.aws.region}`);
     try {
       const input: DetectFacesCommandInput = {
         Image: {
@@ -86,7 +99,7 @@ export class FaceDetectionService {
         Attributes: ['ALL'],
       };
 
-      console.log(`[FACE_DETECTION] Sending DetectFaces command to Rekognition`);
+      console.log(`[FACE_DETECTION] Sending DetectFaces command to Rekognition with input:`, JSON.stringify(input, null, 2));
       const command = new DetectFacesCommand(input);
       const response = await this.rekognitionClient.send(command);
       console.log(`[FACE_DETECTION] Rekognition response received, faces found: ${response.FaceDetails?.length || 0}`);
