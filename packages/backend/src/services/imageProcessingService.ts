@@ -198,15 +198,26 @@ export class ImageProcessingService {
       }
       console.log(`[IMAGE_PROCESSING] Theme template ready, size: ${themeTemplate.length} bytes`);
       
-      // Step 6: Process the image (blend face with theme)
-      console.log(`[IMAGE_PROCESSING] Step 6: Blending face with theme`);
-      const processedImageBuffer = await this.blendImages(
-        inputImageBuffer,
-        themeTemplate,
-        faceDetection,
-        options
-      );
-      console.log(`[IMAGE_PROCESSING] Image blending completed, result size: ${processedImageBuffer.length} bytes`);
+      // Step 6: Process the image (face swap with theme)
+      console.log(`[IMAGE_PROCESSING] Step 6: Face swapping with theme`);
+      let processedImageBuffer;
+      
+      if (options.generatePose && options.action) {
+        // Use the Bedrock-generated image (already has face swap)
+        processedImageBuffer = themeTemplate;
+        console.log(`[IMAGE_PROCESSING] Using Bedrock face-swapped image`);
+      } else {
+        // Fallback to basic blending for static templates
+        processedImageBuffer = await this.blendImages(
+          inputImageBuffer,
+          themeTemplate,
+          faceDetection,
+          options
+        );
+        console.log(`[IMAGE_PROCESSING] Basic face blending completed`);
+      }
+      
+      console.log(`[IMAGE_PROCESSING] Image processing completed, result size: ${processedImageBuffer.length} bytes`);
 
       // Step 7: Optimize and save the result
       console.log(`[IMAGE_PROCESSING] Step 7: Optimizing processed image`);

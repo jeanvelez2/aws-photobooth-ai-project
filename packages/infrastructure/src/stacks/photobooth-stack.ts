@@ -408,6 +408,8 @@ export class PhotoboothStack extends cdk.Stack {
                 'bedrock:InvokeModel',
               ],
               resources: [
+                `arn:aws:bedrock:${this.region}::foundation-model/amazon.nova-canvas-v1`,
+                `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-image-generator-v1`,
                 `arn:aws:bedrock:${this.region}::foundation-model/stability.stable-diffusion-xl-v1`,
               ],
             }),
