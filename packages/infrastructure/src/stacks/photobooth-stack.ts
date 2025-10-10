@@ -123,6 +123,17 @@ export class PhotoboothStack extends cdk.Stack {
           expiration: cdk.Duration.days(this.environmentConfig.s3.processedRetentionDays),
         },
         {
+          id: 'KeepModelsLongTerm',
+          enabled: true,
+          prefix: 'models/',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+          ],
+        },
+        {
           id: 'AbortIncompleteMultipartUploads',
           enabled: true,
           abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
@@ -427,8 +438,8 @@ export class PhotoboothStack extends cdk.Stack {
 
     // Create task definition with GPU support
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'ProcessingTaskDefinition', {
-      memoryLimitMiB: 4096,
-      cpu: 2048,
+      memoryLimitMiB: 8192,
+      cpu: 4096,
       executionRole: taskExecutionRole,
       taskRole: taskRole,
       runtimePlatform: {
@@ -441,8 +452,9 @@ export class PhotoboothStack extends cdk.Stack {
     const backendRepository = ecr.Repository.fromRepositoryName(this, 'BackendRepositoryRef', `ai-photobooth-backend-${this.environmentConfig.environment}`);
     const container = taskDefinition.addContainer('ProcessingContainer', {
       image: ecs.ContainerImage.fromEcrRepository(backendRepository, 'latest'),
-      memoryLimitMiB: 3584,
-      cpu: 1792,
+      memoryLimitMiB: 7168,
+      cpu: 3584,
+      gpuCount: 1,
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'photobooth-processing',
         logGroup: new logs.LogGroup(this, 'ProcessingLogGroup', {
@@ -460,6 +472,9 @@ export class PhotoboothStack extends cdk.Stack {
         ENABLE_XRAY: this.environmentConfig.enableXRay.toString(),
         APP_CONFIG_SECRET_ARN: this.appConfigSecret.secretArn,
         CLOUDFRONT_DOMAIN: this.distribution.distributionDomainName,
+        CUDA_VISIBLE_DEVICES: '0',
+        NVIDIA_VISIBLE_DEVICES: 'all',
+        NVIDIA_DRIVER_CAPABILITIES: 'compute,utility',
       },
       healthCheck: {
         command: ['CMD-SHELL', 'nc -z localhost 3001 || exit 1'],
